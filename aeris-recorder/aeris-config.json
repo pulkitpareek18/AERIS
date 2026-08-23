@@ -1,0 +1,14 @@
+{
+  "capture_interface": "wlan0",
+  "traffic_interface": "wlan1",
+  "data_directory": "/home/aeris/aeris-data/sessions",
+  "database_path": "/home/aeris/aeris-data/aeris.db",
+  "makecsiparams_directory": "/home/aeris/nexmon/patches/bcm43455c0/7_45_189/nexmon_csi/utils/makecsiparams",
+  "frame_control": "0x88",
+  "ping_interval_s": 0.025,
+  "ping_payload_bytes": 1000,
+  "minimum_packet_rate": 40.0,
+  "maximum_gap_s": 1.0,
+  "fullscreen": true,
+  "probe_target": "1.1.1.1"
+}

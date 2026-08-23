@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AERIS_LAUNCHER_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+AERIS_APP_DIR="$(dirname "$AERIS_LAUNCHER_PATH")"
+AERIS_URL="http://127.0.0.1:8765"
+AERIS_SERVER_PID=""
+AERIS_BROWSER_PID=""
+AERIS_SUDO_KEEPALIVE_PID=""
+
+if [[ "${1:-}" == "--self-test" || "${1:-}" == "--init-db" ]]; then
+    exec python3 "$AERIS_APP_DIR/aeris_recorder_server.py" "$@"
+fi
+
+sudo -v
+(
+    while sleep 45; do
+        sudo -n -v || exit
+    done
+) &
+AERIS_SUDO_KEEPALIVE_PID=$!
+
+cleanup() {
+    curl -fsS -X POST "$AERIS_URL/api/shutdown" >/dev/null 2>&1 || true
+    [[ -z "$AERIS_BROWSER_PID" ]] || kill "$AERIS_BROWSER_PID" 2>/dev/null || true
+    [[ -z "$AERIS_SERVER_PID" ]] || kill "$AERIS_SERVER_PID" 2>/dev/null || true
+    [[ -z "$AERIS_SUDO_KEEPALIVE_PID" ]] || kill "$AERIS_SUDO_KEEPALIVE_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+python3 "$AERIS_APP_DIR/aeris_recorder_server.py" --serve --host 0.0.0.0 --port 8765 \
+    >"${XDG_RUNTIME_DIR:-/tmp}/aeris-recorder.log" 2>&1 &
+AERIS_SERVER_PID=$!
+
+for _ in $(seq 1 50); do
+    if curl -fsS "$AERIS_URL/api/health" >/dev/null 2>&1; then
+        break
+    fi
+    if ! kill -0 "$AERIS_SERVER_PID" 2>/dev/null; then
+        echo "AERIS Recorder service failed to start."
+        tail -n 30 "${XDG_RUNTIME_DIR:-/tmp}/aeris-recorder.log" 2>/dev/null || true
+        exit 1
+    fi
+    sleep 0.1
+done
+
+AERIS_BROWSER=""
+for candidate in chromium chromium-browser; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        AERIS_BROWSER="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$AERIS_BROWSER" ]]; then
+    echo "Chromium is not installed. Run the installer again."
+    exit 1
+fi
+
+AERIS_CHROMIUM_FLAGS=(
+    "--app=$AERIS_URL"
+    "--user-data-dir=$HOME/.cache/aeris-recorder-chromium"
+    "--no-first-run"
+    "--no-default-browser-check"
+    "--disable-session-crashed-bubble"
+    "--disable-features=Translate"
+    "--disable-pinch"
+    "--noerrdialogs"
+    "--ozone-platform=x11"
+    "--disable-gpu"
+    "--disable-dev-shm-usage"
+)
+
+if [[ "${1:-}" == "--windowed" ]]; then
+    AERIS_CHROMIUM_FLAGS+=("--window-size=800,480")
+else
+    AERIS_CHROMIUM_FLAGS+=("--kiosk")
+fi
+
+"$AERIS_BROWSER" "${AERIS_CHROMIUM_FLAGS[@]}" &
+AERIS_BROWSER_PID=$!
+
+while kill -0 "$AERIS_SERVER_PID" 2>/dev/null && kill -0 "$AERIS_BROWSER_PID" 2>/dev/null; do
+    sleep 1
+done

@@ -1,0 +1,3551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#07111d">
+<title>AERIS CSI Recorder v3</title>
+<style>
+:root {
+  --bg: #07111d;
+  --panel: #0d1b2b;
+  --panel2: #10243a;
+  --panel-hover: #152d47;
+  --line: #284159;
+  --text: #f4f7fa;
+  --muted: #a0b3c6;
+  --cyan: #36d9ff;
+  --cyan-dim: rgba(54, 217, 255, 0.15);
+  --blue: #5aa8ff;
+  --purple: #b68cff;
+  --green: #65d391;
+  --green-dim: rgba(101, 211, 145, 0.15);
+  --amber: #ffc45c;
+  --amber-dim: rgba(255, 196, 92, 0.15);
+  --red: #ff7180;
+  --red-dim: rgba(255, 113, 128, 0.15);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body:before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(54, 217, 255, 0.08), transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(182, 140, 255, 0.07), transparent 45%);
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  max-width: 1024px;
+  height: 100dvh;
+  min-height: 440px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  gap: 8px;
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--cyan);
+  color: #05101a;
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: 0 0 14px rgba(54, 217, 255, 0.35);
+}
+
+.wordmark strong {
+  display: block;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.wordmark span {
+  display: block;
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connection-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--panel);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.connection-btn:hover, .connection-btn:active {
+  background: var(--panel-hover);
+  border-color: var(--cyan);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+}
+
+.connection-btn.offline .dot { background: var(--red); box-shadow: none; }
+.connection-btn.demo .dot { background: var(--amber); box-shadow: none; }
+
+.qr-mini-icon {
+  display: inline-block;
+  font-size: 15px;
+  margin-left: 2px;
+  opacity: 0.9;
+}
+
+.exit-btn {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid #74404b;
+  border-radius: 9px;
+  background: #2a151e;
+  color: #ffb4be;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+/* View Container */
+.view-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.view {
+  position: absolute;
+  inset: 0;
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.view.active {
+  display: grid;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* =========================================================================
+   1. SETUP VIEW (Strictly 800x480 optimized)
+   ========================================================================= */
+#viewSetup {
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  align-content: stretch;
+}
+
+.setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+
+.setup-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.card-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.add-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--cyan);
+  border-radius: 7px;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.setup-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.setup-select {
+  width: 100%;
+  height: 52px;
+  padding: 0 38px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 750;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.setup-select:focus {
+  border-color: var(--cyan);
+}
+
+.setup-select-wrap:after {
+  content: "▾";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 20px;
+  pointer-events: none;
+}
+
+.start-btn {
+  height: 64px;
+  width: 100%;
+  border: 1px solid #6be6ff;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #3cd9ff, #24b8dd);
+  color: #04121b;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 20px rgba(54, 217, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.start-btn:active {
+  transform: scale(0.99);
+}
+
+.start-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* =========================================================================
+   2. RECORDING VIEW
+   ========================================================================= */
+#viewRecording {
+  grid-template-rows: 1fr 94px 54px;
+  gap: 8px;
+}
+
+.stage-card {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.stage-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cyan);
+  font-size: 15px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.status-pill:before {
+  content: "";
+  width: 22px;
+  height: 3px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
+.phase-text {
+  margin: 2px 0 4px;
+  font-size: clamp(34px, 5.5vw, 46px);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--cyan);
+  letter-spacing: 0.02em;
+}
+
+.phase-text.ready, .phase-text.empty, .phase-text.calibration { color: var(--blue); }
+.phase-text.transition, .phase-text.warning { color: var(--amber); }
+.phase-text.movement { color: var(--purple); }
+.phase-text.pass { color: var(--green); }
+.phase-text.fail, .phase-text.error { color: var(--red); }
+
+.instruction-text {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--text);
+  font-weight: 550;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.meta-row b {
+  color: var(--text);
+  font-weight: 750;
+}
+
+.countdown-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--line);
+  padding-left: 12px;
+}
+
+.countdown-digits {
+  font-size: clamp(48px, 8vw, 68px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.countdown-label {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+}
+
+.metric-cell {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metric-cell label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.metric-cell strong {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stop-btn {
+  height: 52px;
+  border: 1px solid #8b4652;
+  border-radius: 10px;
+  background: #381c25;
+  color: #ffb7c0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.stop-btn:active {
+  transform: scale(0.99);
+}
+
+/* =========================================================================
+   3. RESULTS VIEW
+   ========================================================================= */
+#viewResults {
+  grid-template-rows: 44px 1fr 48px;
+  gap: 7px;
+}
+
+.results-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px;
+}
+
+.results-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  height: 38px;
+  padding: 0 16px;
+  border: 2px solid currentColor;
+  border-radius: 9px;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+}
+
+.result-badge.pass { color: var(--green); background: var(--green-dim); }
+.result-badge.warning { color: var(--amber); background: var(--amber-dim); }
+.result-badge.fail { color: var(--red); background: var(--red-dim); }
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto auto 1fr;
+  gap: 7px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.result-metric {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.result-metric label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.result-metric strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-checks-card {
+  grid-column: span 4;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow-y: auto;
+}
+
+.result-checks-card label {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.check-item {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 2px 0;
+}
+
+.check-item.pass { color: var(--green); }
+.check-item.fail { color: var(--red); }
+
+.results-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.results-session-path {
+  flex: 1;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.results-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.action-btn.primary {
+  border-color: #5de3fa;
+  background: var(--cyan);
+  color: #04121b;
+}
+
+/* =========================================================================
+   MODAL DIALOGS (Participant / Location / Connection QR)
+   ========================================================================= */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(4, 10, 18, 0.85);
+  backdrop-filter: blur(4px);
+  display: none;
+  place-items: center;
+  padding: 10px;
+}
+
+.modal-backdrop.show {
+  display: grid;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 580px;
+  max-height: 92vh;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0c1827;
+  padding: 16px 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 850;
+  color: var(--cyan);
+}
+
+.modal-close {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 24px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.form-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-body .full-width {
+  grid-column: span 2;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--muted);
+}
+
+.form-input, .form-select {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 650;
+  outline: none;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--cyan);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.modal-btn {
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.modal-btn.save {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  color: #04121b;
+}
+
+/* Connection / QR Modal layout */
+.connection-modal-body {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.qr-box {
+  width: 190px;
+  height: 190px;
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.qr-box svg {
+  width: 100%;
+  height: 100%;
+  max-width: 174px;
+  max-height: 174px;
+  display: block;
+}
+
+.network-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.network-item {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.network-item label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+
+.network-url-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.network-url-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14.5px;
+  font-weight: 750;
+  color: var(--cyan);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+  flex: 1;
+}
+
+.copy-mini-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.copy-mini-btn:active {
+  background: var(--cyan);
+  color: #04121b;
+}
+
+.network-hint {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  top: 12px;
+  transform: translate(-50%, -100px);
+  max-width: 90vw;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #122234;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 750;
+  transition: transform 0.25s ease;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+.toast.show { transform: translate(-50%, 0); }
+.toast.error { border-color: #8b4652; color: #ffb7c0; background: #2b1620; }
+
+/* Progress Bar */
+.progress-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  background: #142436;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--cyan);
+  transition: width 0.1s linear;
+}
+
+/* Dataset Explorer & Navigation Button */
+.nav-data-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 750;
+  background: var(--panel);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-data-btn:hover, .nav-data-btn:active {
+  background: var(--panel-hover);
+  border-color: var(--cyan);
+}
+
+.nav-data-btn .data-badge {
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+/* =========================================================================
+   4. DATASET EXPLORER VIEW (#viewData)
+   ========================================================================= */
+#viewData {
+  grid-template-rows: auto auto auto 1fr;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+
+.data-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.data-view-title-group h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.data-view-subtitle {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.data-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn.export-all-btn {
+  background: linear-gradient(180deg, #3cd9ff, #24b8dd);
+  color: #04121b;
+  border-color: #6be6ff;
+  font-weight: 900;
+}
+
+.action-btn.export-all-btn:hover {
+  filter: brightness(1.1);
+}
+
+.data-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.data-stat-card {
+  padding: 5px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.data-stat-card .stat-num {
+  display: block;
+  font-size: 16px;
+  font-weight: 850;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-stat-card.pass .stat-num {
+  color: var(--green);
+}
+
+.data-stat-card .stat-lbl {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.data-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 8px;
+}
+
+.search-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-box input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.search-box input:focus {
+  border-color: var(--cyan);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-select {
+  height: 34px;
+  padding: 0 8px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+
+.toolbar-select:focus {
+  border-color: var(--cyan);
+}
+
+.action-btn.refresh-btn {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
+.sessions-list-wrap {
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 6px;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-sessions-msg {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.session-row-card {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.session-row-card:hover {
+  border-color: var(--cyan);
+  background: var(--panel-hover);
+}
+
+.session-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-id-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+
+.session-date-text {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.session-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12.5px;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.meta-pill span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.session-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 5px;
+}
+
+.files-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.file-tag {
+  font-size: 11px;
+  font-weight: 750;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #a0b3c6;
+}
+
+.file-tag.pcap { color: #6be6ff; border-color: rgba(54, 217, 255, 0.3); }
+.file-tag.csv { color: #65d391; border-color: rgba(101, 211, 145, 0.3); }
+.file-tag.json { color: #ffc45c; border-color: rgba(255, 196, 92, 0.3); }
+
+.session-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mini-action-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mini-action-btn:hover {
+  background: var(--panel-hover);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.mini-action-btn.download:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* Inspection Modal Specifics */
+.inspect-modal-card {
+  max-width: 900px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspect-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inspect-subtitle {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--cyan);
+}
+
+.inspect-modal-body {
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspect-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.inspect-info-tile {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.inspect-info-tile label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.inspect-info-tile strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.demographics-text {
+  display: block;
+  font-size: 11.5px;
+  color: var(--cyan);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.inspect-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.inspect-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  font-weight: 850;
+  color: var(--text);
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.badge-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.labels-table-wrap {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.labels-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.labels-table th {
+  text-align: left;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel2);
+  position: sticky;
+  top: 0;
+}
+
+.labels-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-variant-numeric: tabular-nums;
+}
+
+.valid-tag {
+  font-weight: 800;
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.valid-tag.yes { color: var(--green); background: var(--green-dim); }
+.valid-tag.no { color: var(--muted); background: rgba(255, 255, 255, 0.05); }
+
+.quality-checks-grid, .metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.session-files-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 680px) {
+  .app { padding: 6px 8px; }
+  .setup-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); gap: 6px; }
+  .setup-select { height: 46px; font-size: 16px; }
+  .start-btn { height: 54px; font-size: 20px; }
+  .metrics-strip { grid-template-columns: repeat(3, 1fr); }
+  .results-grid { grid-template-columns: repeat(2, 1fr); }
+  .result-checks-card { grid-column: span 2; }
+  .connection-modal-body { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .network-url-row { justify-content: center; }
+  .data-stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .inspect-overview-grid { grid-template-columns: repeat(2, 1fr); }
+  .quality-checks-grid, .metadata-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-height: 460px) {
+  .app { padding: 4px 8px; gap: 4px; }
+  header { min-height: 40px; }
+  .mark { width: 32px; height: 32px; font-size: 18px; }
+  .wordmark strong { font-size: 18px; }
+  .connection-btn, .exit-btn, .nav-data-btn { height: 36px; font-size: 13px; }
+  .setup-select { height: 44px; font-size: 16px; }
+  .start-btn { height: 52px; font-size: 20px; }
+  .stage-card { padding: 8px 12px; }
+  .countdown-digits { font-size: 42px; }
+  .stop-btn { height: 44px; }
+  .qr-box { width: 140px; height: 140px; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="app">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="mark">A</div>
+      <div class="wordmark">
+        <strong>AERIS</strong>
+        <span>RECORDER v3</span>
+      </div>
+    </div>
+    <div class="head-actions">
+      <button class="nav-data-btn" id="btnNavData" type="button" title="View Recorded Dataset & AI Training Files">
+        <span class="data-icon">📁</span>
+        <span>DATASET</span>
+        <span class="data-badge" id="dataCountBadge">0</span>
+      </button>
+      <button class="connection-btn" id="btnConnectionModal" type="button" title="View Network URLs & Scan QR Code">
+        <i class="dot"></i>
+        <span id="connectionStatus">Connecting…</span>
+        <span class="qr-mini-icon">📱</span>
+      </button>
+      <button class="exit-btn" id="exitBtn" type="button">EXIT</button>
+    </div>
+  </header>
+
+  <!-- Viewport -->
+  <main class="view-container">
+
+    <!-- ===================================================================
+         VIEW 1: TRIAL SETUP
+         =================================================================== -->
+    <section class="view active" id="viewSetup">
+      <div class="setup-grid">
+        <!-- Participant Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Participant</span>
+            <button class="add-btn" id="btnAddParticipant" type="button">+ ADD</button>
+          </div>
+          <div class="setup-select-wrap">
+            <select class="setup-select" id="selectParticipant" aria-label="Select Participant">
+              <option value="">Loading participants…</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Location Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Location</span>
+            <button class="add-btn" id="btnAddLocation" type="button">+ ADD</button>
+          </div>
+          <div class="setup-select-wrap">
+            <select class="setup-select" id="selectLocation" aria-label="Select Location">
+              <option value="">Loading locations…</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Walking Type Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Walking Type</span>
+          </div>
+          <div class="setup-select-wrap">
+            <select class="setup-select" id="selectWalkingType" aria-label="Select Walking Type">
+              <option value="enter">Enter path</option>
+              <option value="exit">Exit path</option>
+              <option value="across_left_to_right">Across (Left → Right)</option>
+              <option value="across_right_to_left">Across (Right → Left)</option>
+              <option value="toward_pi">Toward Pi</option>
+              <option value="away_from_pi">Away from Pi</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Clothing Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Clothing</span>
+          </div>
+          <div class="setup-select-wrap">
+            <select class="setup-select" id="selectClothing" aria-label="Select Clothing">
+              <option value="normal">Normal (Jeans / Shirt)</option>
+              <option value="light">Light (T-shirt / Shorts)</option>
+              <option value="heavy">Heavy (Jacket / Coat)</option>
+              <option value="woollen_winter">Woollen Winter</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button class="start-btn" id="btnStartTrial" type="button">
+        <span>▶ START TRIAL</span>
+      </button>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 2: RECORDING
+         =================================================================== -->
+    <section class="view" id="viewRecording">
+      <div class="stage-card">
+        <div class="stage-info">
+          <div>
+            <div class="status-pill" id="recStatusPill">CAPTURING CSI</div>
+            <h1 class="phase-text" id="recPhaseText">WARM-UP</h1>
+            <p class="instruction-text" id="recInstructionText">Keep the monitored path empty.</p>
+          </div>
+          <div class="meta-row">
+            <span>Elapsed: <b id="recElapsed">00:00</b></span>
+            <span>Progress: <b id="recPercent">0%</b></span>
+            <span>Session: <b id="recSessionId">—</b></span>
+          </div>
+        </div>
+
+        <div class="countdown-box">
+          <div class="countdown-digits" id="recCountdown">--.-</div>
+          <div class="countdown-label">PHASE SECONDS</div>
+        </div>
+      </div>
+
+      <div class="metrics-strip">
+        <div class="metric-cell">
+          <label>Capture size</label>
+          <strong id="mSize">—</strong>
+        </div>
+        <div class="metric-cell">
+          <label>CSI packets</label>
+          <strong id="mPackets">—</strong>
+        </div>
+        <div class="metric-cell">
+          <label>Packet rate</label>
+          <strong id="mRate">—</strong>
+        </div>
+        <div class="metric-cell">
+          <label>Max packet gap</label>
+          <strong id="mGap">—</strong>
+        </div>
+        <div class="metric-cell">
+          <label>Median RSSI</label>
+          <strong id="mRssi">—</strong>
+        </div>
+      </div>
+
+      <button class="stop-btn" id="btnStopTrial" type="button">⏹ STOP TRIAL</button>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 3: RESULTS
+         =================================================================== -->
+    <section class="view" id="viewResults">
+      <div class="results-header">
+        <h2>Trial Quality Results</h2>
+        <div class="result-badge pass" id="resBadge">PASS</div>
+        <div></div>
+      </div>
+
+      <div class="results-grid">
+        <div class="result-metric">
+          <label>Total CSI packets</label>
+          <strong id="resPackets">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Average packet rate</label>
+          <strong id="resRate">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Maximum packet gap</label>
+          <strong id="resGap">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Median RSSI</label>
+          <strong id="resRssi">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Capture duration</label>
+          <strong id="resDuration">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Kernel packet drops</label>
+          <strong id="resDrops">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Participant</label>
+          <strong id="resPart">—</strong>
+        </div>
+        <div class="result-metric">
+          <label>Location</label>
+          <strong id="resLoc">—</strong>
+        </div>
+
+        <div class="result-checks-card">
+          <label>Quality Validation Checks</label>
+          <div id="resChecksList"></div>
+        </div>
+      </div>
+
+      <div class="results-footer">
+        <div class="results-session-path" id="resSavedPath">Saved session: —</div>
+        <div class="results-actions">
+          <button class="action-btn" id="btnBackToSetup" type="button">SETUP</button>
+          <button class="action-btn primary" id="btnNewTrial" type="button">NEW TRIAL</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 4: DATASET & AI TRAINING FILES EXPLORER
+         =================================================================== -->
+    <section class="view" id="viewData">
+      <div class="data-view-header">
+        <div class="data-view-title-group">
+          <h2>📁 Recorded Dataset & AI Training Files</h2>
+          <span class="data-view-subtitle">Raw CSI PCAPs, synchronized ground truth labels, and metadata</span>
+        </div>
+        <div class="data-view-actions">
+          <button class="action-btn export-all-btn" id="btnExportAllZip" type="button">
+            <span>📦 EXPORT ALL (ZIP)</span>
+          </button>
+          <button class="action-btn" id="btnBackFromData" type="button">← SETUP</button>
+        </div>
+      </div>
+
+      <!-- Summary Stats Banner -->
+      <div class="data-stats-bar">
+        <div class="data-stat-card">
+          <span class="stat-num" id="statTotalSessions">0</span>
+          <span class="stat-lbl">TOTAL SESSIONS</span>
+        </div>
+        <div class="data-stat-card pass">
+          <span class="stat-num" id="statPassSessions">0</span>
+          <span class="stat-lbl">VALID AI SESSIONS (PASS)</span>
+        </div>
+        <div class="data-stat-card">
+          <span class="stat-num" id="statTotalPackets">0</span>
+          <span class="stat-lbl">TOTAL CSI PACKETS</span>
+        </div>
+        <div class="data-stat-card">
+          <span class="stat-num" id="statTotalSize">0 MB</span>
+          <span class="stat-lbl">TOTAL CAPTURE SIZE</span>
+        </div>
+      </div>
+
+      <!-- Filters & Search Toolbar -->
+      <div class="data-toolbar">
+        <div class="search-box">
+          <input type="text" id="dataSearchInput" placeholder="🔍 Search session ID, participant, location, activity..." autocomplete="off">
+        </div>
+        <div class="filter-group">
+          <select id="dataFilterQuality" class="toolbar-select" aria-label="Filter by Quality">
+            <option value="all">All Quality (Any)</option>
+            <option value="pass">PASS Only (Valid)</option>
+            <option value="fail">FAIL / Incomplete</option>
+          </select>
+          <select id="dataFilterActivity" class="toolbar-select" aria-label="Filter by Walking Type">
+            <option value="all">All Activities</option>
+            <option value="enter">Enter Path</option>
+            <option value="exit">Exit Path</option>
+            <option value="across_left_to_right">Across (L → R)</option>
+            <option value="across_right_to_left">Across (R → L)</option>
+            <option value="toward_pi">Toward Pi</option>
+            <option value="away_from_pi">Away from Pi</option>
+          </select>
+          <button class="action-btn refresh-btn" id="btnRefreshData" type="button" title="Refresh list">⟳ REFRESH</button>
+        </div>
+      </div>
+
+      <!-- Sessions List Container -->
+      <div class="sessions-list-wrap">
+        <div class="sessions-list" id="sessionsList">
+          <!-- Session Cards dynamically injected here -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Live Progress Bar -->
+  <div class="progress-bar">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+</div>
+
+<!-- =======================================================================
+     ADD PARTICIPANT MODAL
+     ======================================================================= -->
+<div class="modal-backdrop" id="modalParticipant">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>+ Add Participant</h3>
+      <button class="modal-close" id="btnClosePartModal" type="button">×</button>
+    </div>
+    <div class="form-body">
+      <div class="form-group full-width">
+        <label for="partName">Participant Name *</label>
+        <input class="form-input" id="partName" placeholder="e.g. Rahul Sharma" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="partHeight">Height (cm)</label>
+        <input class="form-input" id="partHeight" type="number" min="50" max="250" placeholder="e.g. 175">
+      </div>
+      <div class="form-group">
+        <label for="partBody">Body Type</label>
+        <select class="form-select" id="partBody">
+          <option value="average">Average</option>
+          <option value="slim">Slim</option>
+          <option value="broad">Broad</option>
+          <option value="prefer_not_to_say">Prefer not to say</option>
+        </select>
+      </div>
+      <div class="form-group full-width">
+        <label for="partGender">Gender</label>
+        <select class="form-select" id="partGender">
+          <option value="prefer_not_to_say">Prefer not to say</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="non_binary">Non-binary</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="btnCancelPartModal" type="button">Cancel</button>
+      <button class="modal-btn save" id="btnSavePart" type="button">Save Participant</button>
+    </div>
+  </div>
+</div>
+
+<!-- =======================================================================
+     ADD LOCATION MODAL
+     ======================================================================= -->
+<div class="modal-backdrop" id="modalLocation">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>+ Add Location</h3>
+      <button class="modal-close" id="btnCloseLocModal" type="button">×</button>
+    </div>
+    <div class="form-body">
+      <div class="form-group full-width">
+        <label for="locName">Location Name *</label>
+        <input class="form-input" id="locName" placeholder="e.g. Corridor B — 2nd Floor" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="locDistance">Pi–Hotspot Distance (m)</label>
+        <input class="form-input" id="locDistance" type="number" step="0.1" min="0" max="100" placeholder="e.g. 4.5">
+      </div>
+      <div class="form-group">
+        <label for="locScenario">Scenario</label>
+        <select class="form-select" id="locScenario">
+          <option value="LOS">LOS (Line-of-Sight)</option>
+          <option value="NLOS_ONE_WALL">NLOS (One Wall)</option>
+          <option value="NLOS_MULTIPLE_WALLS">NLOS (Multiple Walls)</option>
+        </select>
+      </div>
+      <div class="form-group full-width">
+        <label for="locNotes">Notes (Optional)</label>
+        <input class="form-input" id="locNotes" placeholder="e.g. Drywall, metal doors nearby" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="btnCancelLocModal" type="button">Cancel</button>
+      <button class="modal-btn save" id="btnSaveLoc" type="button">Save Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- =======================================================================
+     CONNECTION & REMOTE ACCESS / QR MODAL
+     ======================================================================= -->
+<div class="modal-backdrop" id="modalConnection">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>📱 Network & Remote Access</h3>
+      <button class="modal-close" id="btnCloseConnModal" type="button">×</button>
+    </div>
+    <div class="connection-modal-body">
+      <div class="qr-box" id="qrContainer">
+        <!-- Dynamically rendered SVG QR code -->
+      </div>
+      <div class="network-details">
+        <div class="network-item">
+          <label>mDNS URL (Laptops / Macs / iOS)</label>
+          <div class="network-url-row">
+            <span class="network-url-text" id="urlMdns">http://aeris.local:8765</span>
+            <button class="copy-mini-btn" id="btnCopyMdns" type="button">COPY</button>
+          </div>
+        </div>
+        <div class="network-item">
+          <label>Direct IP URL (Android / Windows / PC)</label>
+          <div class="network-url-row">
+            <span class="network-url-text" id="urlIp">http://10.22.17.102:8765</span>
+            <button class="copy-mini-btn" id="btnCopyIp" type="button">COPY</button>
+          </div>
+        </div>
+        <p class="network-hint">
+          Scan the QR code with your phone or tablet camera to open the AERIS control interface simultaneously.
+        </p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn save" id="btnDoneConnModal" type="button">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- =======================================================================
+     SESSION AI INSPECTION MODAL
+     ======================================================================= -->
+<div class="modal-backdrop" id="modalSessionInspect">
+  <div class="modal-card inspect-modal-card">
+    <div class="modal-head">
+      <div class="inspect-title-wrap">
+        <h3>🔍 Session AI Data & Annotations</h3>
+        <span class="inspect-subtitle" id="inspectSessionId">—</span>
+      </div>
+      <button class="modal-close" id="btnCloseInspectModal" type="button">×</button>
+    </div>
+    <div class="inspect-modal-body">
+      <!-- Overview & AI Labels Pills -->
+      <div class="inspect-overview-grid">
+        <div class="inspect-info-tile">
+          <label>Participant Target</label>
+          <strong id="inspParticipant">—</strong>
+          <span class="demographics-text" id="inspDemographics">—</span>
+        </div>
+        <div class="inspect-info-tile">
+          <label>Location & Scenario</label>
+          <strong id="inspLocation">—</strong>
+          <span class="demographics-text" id="inspScenario">—</span>
+        </div>
+        <div class="inspect-info-tile">
+          <label>Activity & Clothing</label>
+          <strong id="inspActivity">—</strong>
+          <span class="demographics-text" id="inspClothing">—</span>
+        </div>
+        <div class="inspect-info-tile">
+          <label>Quality Status</label>
+          <div class="result-badge pass" id="inspQualityBadge">PASS</div>
+          <span class="demographics-text" id="inspMetrics">—</span>
+        </div>
+      </div>
+
+      <!-- Section 1: Synchronized Phase Timings & Labels (labels.csv) -->
+      <div class="inspect-section">
+        <div class="inspect-section-title">
+          <span>⏱ Synchronized Phase Annotations (<code>labels.csv</code>)</span>
+          <span class="badge-sub">Ground Truth for ML Training</span>
+        </div>
+        <div class="labels-table-wrap">
+          <table class="labels-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Phase Label</th>
+                <th>Start (s)</th>
+                <th>End (s)</th>
+                <th>Duration</th>
+                <th>Valid for AI</th>
+                <th>Instruction</th>
+              </tr>
+            </thead>
+            <tbody id="inspLabelsTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 2: Quality Verification Benchmarks (quality.json) -->
+      <div class="inspect-section">
+        <div class="inspect-section-title">
+          <span>📊 Quality Verification Benchmarks (<code>quality.json</code>)</span>
+        </div>
+        <div class="quality-checks-grid" id="inspQualityChecksGrid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Section 3: Radio & Hardware Parameters (metadata.json) -->
+      <div class="inspect-section">
+        <div class="inspect-section-title">
+          <span>📡 Radio & Hardware Metadata (<code>metadata.json</code>)</span>
+        </div>
+        <div class="metadata-grid" id="inspMetadataGrid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Section 4: Files in Session -->
+      <div class="inspect-section">
+        <div class="inspect-section-title">
+          <span>📦 Included Session Files</span>
+        </div>
+        <div class="session-files-list" id="inspFilesList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="btnDownloadCurrentSessionZip" type="button">⬇ Download Session ZIP</button>
+      <button class="modal-btn save" id="btnCloseInspectModalBtn" type="button">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- =======================================================================
+     APPLICATION LOGIC (Vanilla JS)
+     ======================================================================= -->
+<script>
+// =========================================================================
+// Standard QRCode generator (Kazuhiko Arase / Type 1-10)
+// Pure vanilla JS, zero dependencies, standard ISO/IEC 18004
+// =========================================================================
+const QR8bitByte = function(data) {
+  this.mode = 4;
+  this.data = data;
+};
+QR8bitByte.prototype = {
+  getLength: function() { return this.data.length; },
+  write: function(buffer) {
+    for (let i = 0; i < this.data.length; i++) {
+      buffer.put(this.data.charCodeAt(i), 8);
+    }
+  }
+};
+
+const QRMath = {
+  glog: function(n) { if (n < 1) throw new Error("glog(" + n + ")"); return QRMath.LOG_TABLE[n]; },
+  gexp: function(n) {
+    while (n < 0) n += 255;
+    while (n >= 256) n -= 255;
+    return QRMath.EXP_TABLE[n];
+  },
+  EXP_TABLE: new Array(256),
+  LOG_TABLE: new Array(256)
+};
+for (let i = 0; i < 8; i++) QRMath.EXP_TABLE[i] = 1 << i;
+for (let i = 8; i < 256; i++) QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4] ^ QRMath.EXP_TABLE[i - 5] ^ QRMath.EXP_TABLE[i - 6] ^ QRMath.EXP_TABLE[i - 8];
+for (let i = 0; i < 255; i++) QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]] = i;
+
+function QRPolynomial(num, shift) {
+  let offset = 0;
+  while (offset < num.length && num[offset] == 0) offset++;
+  this.num = new Array(num.length - offset + shift);
+  for (let i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset];
+}
+QRPolynomial.prototype = {
+  get: function(index) { return this.num[index]; },
+  getLength: function() { return this.num.length; },
+  multiply: function(e) {
+    const num = new Array(this.getLength() + e.getLength() - 1).fill(0);
+    for (let i = 0; i < this.getLength(); i++) {
+      for (let j = 0; j < e.getLength(); j++) {
+        num[i + j] ^= QRMath.gexp(QRMath.glog(this.get(i)) + QRMath.glog(e.get(j)));
+      }
+    }
+    return new QRPolynomial(num, 0);
+  },
+  mod: function(e) {
+    if (this.getLength() - e.getLength() < 0) return this;
+    const ratio = QRMath.glog(this.get(0)) - QRMath.glog(e.get(0));
+    const num = new Array(this.getLength());
+    for (let i = 0; i < this.getLength(); i++) num[i] = this.get(i);
+    for (let i = 0; i < e.getLength(); i++) {
+      num[i] ^= QRMath.gexp(QRMath.glog(e.get(i)) + ratio);
+    }
+    return new QRPolynomial(num, 0).mod(e);
+  }
+};
+
+const QRRSBlock = {
+  RS_BLOCK_TABLE: [
+    [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9],
+    [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
+    [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13],
+    [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
+    [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12],
+    [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15],
+  ],
+  getRSBlocks: function(typeNumber, errorCorrectLevel) {
+    const rsBlock = QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + errorCorrectLevel];
+    const list = [];
+    for (let i = 0; i < rsBlock.length; i += 3) {
+      const count = rsBlock[i], totalCount = rsBlock[i + 1], dataCount = rsBlock[i + 2];
+      for (let j = 0; j < count; j++) list.push({ totalCount, dataCount });
+    }
+    return list;
+  }
+};
+
+function QRBitBuffer() {
+  this.buffer = [];
+  this.length = 0;
+}
+QRBitBuffer.prototype = {
+  get: function(index) {
+    const bufIndex = Math.floor(index / 8);
+    return ((this.buffer[bufIndex] >>> (7 - index % 8)) & 1) == 1;
+  },
+  put: function(num, length) {
+    for (let i = 0; i < length; i++) {
+      this.putBit(((num >>> (length - i - 1)) & 1) == 1);
+    }
+  },
+  putBit: function(bit) {
+    const bufIndex = Math.floor(this.length / 8);
+    if (this.buffer.length <= bufIndex) this.buffer.push(0);
+    if (bit) this.buffer[bufIndex] |= (0x80 >>> (this.length % 8));
+    this.length++;
+  }
+};
+
+function QRCodeModel(typeNumber, errorCorrectLevel) {
+  this.typeNumber = typeNumber;
+  this.errorCorrectLevel = errorCorrectLevel;
+  this.modules = null;
+  this.moduleCount = 0;
+  this.dataCache = null;
+  this.dataList = [];
+}
+QRCodeModel.prototype = {
+  addData: function(data) {
+    this.dataList.push(new QR8bitByte(data));
+    this.dataCache = null;
+  },
+  isDark: function(row, col) {
+    if (this.modules[row][col] === null) return false;
+    return this.modules[row][col];
+  },
+  getModuleCount: function() { return this.moduleCount; },
+  make: function() {
+    this.makeImpl(false, this.getBestMaskPattern());
+  },
+  makeImpl: function(test, maskPattern) {
+    this.moduleCount = this.typeNumber * 4 + 17;
+    this.modules = new Array(this.moduleCount);
+    for (let row = 0; row < this.moduleCount; row++) {
+      this.modules[row] = new Array(this.moduleCount).fill(null);
+    }
+    this.setupPositionProbePattern(0, 0);
+    this.setupPositionProbePattern(this.moduleCount - 7, 0);
+    this.setupPositionProbePattern(0, this.moduleCount - 7);
+    this.setupPositionAdjustPattern();
+    this.setupTimingPattern();
+    this.setupTypeInfo(test, maskPattern);
+    if (this.typeNumber >= 7) this.setupTypeNumber(test);
+    if (this.dataCache == null) {
+      this.dataCache = QRCodeModel.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+    }
+    this.mapData(this.dataCache, maskPattern);
+  },
+  setupPositionProbePattern: function(row, col) {
+    for (let r = -1; r <= 7; r++) {
+      if (row + r <= -1 || this.moduleCount <= row + r) continue;
+      for (let c = -1; c <= 7; c++) {
+        if (col + c <= -1 || this.moduleCount <= col + c) continue;
+        if ((0 <= r && r <= 6 && (c == 0 || c == 6)) ||
+            (0 <= c && c <= 6 && (r == 0 || r == 6)) ||
+            (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
+          this.modules[row + r][col + c] = true;
+        } else {
+          this.modules[row + r][col + c] = false;
+        }
+      }
+    }
+  },
+  getBestMaskPattern: function() {
+    let minLostPoint = 0, pattern = 0;
+    for (let i = 0; i < 8; i++) {
+      this.makeImpl(true, i);
+      const lostPoint = QRUtil.getLostPoint(this);
+      if (i == 0 || minLostPoint > lostPoint) {
+        minLostPoint = lostPoint;
+        pattern = i;
+      }
+    }
+    return pattern;
+  },
+  setupTimingPattern: function() {
+    for (let r = 8; r < this.moduleCount - 8; r++) {
+      if (this.modules[r][6] != null) continue;
+      this.modules[r][6] = (r % 2 == 0);
+    }
+    for (let c = 8; c < this.moduleCount - 8; c++) {
+      if (this.modules[6][c] != null) continue;
+      this.modules[6][c] = (c % 2 == 0);
+    }
+  },
+  setupPositionAdjustPattern: function() {
+    const pos = QRUtil.getPatternPosition(this.typeNumber);
+    for (let i = 0; i < pos.length; i++) {
+      for (let j = 0; j < pos.length; j++) {
+        const row = pos[i], col = pos[j];
+        if (this.modules[row][col] != null) continue;
+        for (let r = -2; r <= 2; r++) {
+          for (let c = -2; c <= 2; c++) {
+            if (Math.abs(r) == 2 || Math.abs(c) == 2 || (r == 0 && c == 0)) {
+              this.modules[row + r][col + c] = true;
+            } else {
+              this.modules[row + r][col + c] = false;
+            }
+          }
+        }
+      }
+    }
+  },
+  setupTypeInfo: function(test, maskPattern) {
+    const data = (this.errorCorrectLevel << 3) | maskPattern;
+    const bits = QRUtil.getBCHTypeInfo(data);
+    for (let i = 0; i < 15; i++) {
+      const mod = (!test && ((bits >> i) & 1) == 1);
+      if (i < 6) this.modules[i][8] = mod;
+      else if (i < 8) this.modules[i + 1][8] = mod;
+      else this.modules[this.moduleCount - 15 + i][8] = mod;
+
+      if (i < 8) this.modules[8][this.moduleCount - i - 1] = mod;
+      else if (i < 9) this.modules[8][15 - i - 1 + 1] = mod;
+      else this.modules[8][15 - i - 1] = mod;
+    }
+    this.modules[this.moduleCount - 8][8] = !test;
+  },
+  mapData: function(data, maskPattern) {
+    let inc = -1, row = this.moduleCount - 1, bitIndex = 7, byteIndex = 0;
+    for (let col = this.moduleCount - 1; col > 0; col -= 2) {
+      if (col == 6) col--;
+      while (true) {
+        for (let c = 0; c < 2; c++) {
+          if (this.modules[row][col - c] == null) {
+            let dark = false;
+            if (byteIndex < data.length) {
+              dark = (((data[byteIndex] >>> bitIndex) & 1) == 1);
+            }
+            const mask = QRUtil.getMask(maskPattern, row, col - c);
+            if (mask) dark = !dark;
+            this.modules[row][col - c] = dark;
+            bitIndex--;
+            if (bitIndex == -1) {
+              byteIndex++;
+              bitIndex = 7;
+            }
+          }
+        }
+        row += inc;
+        if (row < 0 || this.moduleCount <= row) {
+          row -= inc;
+          inc = -inc;
+          break;
+        }
+      }
+    }
+  }
+};
+
+QRCodeModel.createData = function(typeNumber, errorCorrectLevel, dataList) {
+  const rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel);
+  const buffer = new QRBitBuffer();
+  for (let i = 0; i < dataList.length; i++) {
+    const data = dataList[i];
+    buffer.put(data.mode, 4);
+    buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber));
+    data.write(buffer);
+  }
+  let totalDataCount = 0;
+  for (let i = 0; i < rsBlocks.length; i++) totalDataCount += rsBlocks[i].dataCount;
+  if (buffer.length > totalDataCount * 8) {
+    throw new Error("code length overflow (" + buffer.length + ">" + totalDataCount * 8 + ")");
+  }
+  if (buffer.length + 4 <= totalDataCount * 8) buffer.put(0, 4);
+  while (buffer.length % 8 != 0) buffer.putBit(false);
+  while (true) {
+    if (buffer.length >= totalDataCount * 8) break;
+    buffer.put(0xec, 8);
+    if (buffer.length >= totalDataCount * 8) break;
+    buffer.put(0x11, 8);
+  }
+  return QRCodeModel.createBytes(buffer, rsBlocks);
+};
+
+QRCodeModel.createBytes = function(buffer, rsBlocks) {
+  let offset = 0, maxDcCount = 0, maxEcCount = 0;
+  const dcdata = new Array(rsBlocks.length), ecdata = new Array(rsBlocks.length);
+  for (let r = 0; r < rsBlocks.length; r++) {
+    const dcCount = rsBlocks[r].dataCount, ecCount = rsBlocks[r].totalCount - dcCount;
+    maxDcCount = Math.max(maxDcCount, dcCount);
+    maxEcCount = Math.max(maxEcCount, ecCount);
+    dcdata[r] = new Array(dcCount);
+    for (let i = 0; i < dcdata[r].length; i++) {
+      dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+    }
+    offset += dcCount;
+    const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+    const rawPoly = new QRPolynomial(dcdata[r], rsPoly.getLength() - 1);
+    const modPoly = rawPoly.mod(rsPoly);
+    ecdata[r] = new Array(rsPoly.getLength() - 1);
+    for (let i = 0; i < ecdata[r].length; i++) {
+      const modIndex = i + modPoly.getLength() - ecdata[r].length;
+      ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0;
+    }
+  }
+  let totalCodeCount = 0;
+  for (let i = 0; i < rsBlocks.length; i++) totalCodeCount += rsBlocks[i].totalCount;
+  const data = new Array(totalCodeCount);
+  let index = 0;
+  for (let i = 0; i < maxDcCount; i++) {
+    for (let r = 0; r < rsBlocks.length; r++) {
+      if (i < dcdata[r].length) data[index++] = dcdata[r][i];
+    }
+  }
+  for (let i = 0; i < maxEcCount; i++) {
+    for (let r = 0; r < rsBlocks.length; r++) {
+      if (i < ecdata[r].length) data[index++] = ecdata[r][i];
+    }
+  }
+  return data;
+};
+
+const QRUtil = {
+  PATTERN_POSITION_TABLE: [
+    [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42]
+  ],
+  G15: (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
+  G15_MASK: (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1),
+  getBCHTypeInfo: function(data) {
+    let d = data << 10;
+    while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) >= 0) {
+      d ^= (QRUtil.G15 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15)));
+    }
+    return ((data << 10) | d) ^ QRUtil.G15_MASK;
+  },
+  getBCHDigit: function(data) {
+    let digit = 0;
+    while (data != 0) { digit++; data >>>= 1; }
+    return digit;
+  },
+  getPatternPosition: function(typeNumber) {
+    return QRUtil.PATTERN_POSITION_TABLE[typeNumber - 1] || [];
+  },
+  getMask: function(maskPattern, i, j) {
+    switch (maskPattern) {
+      case 0: return (i + j) % 2 == 0;
+      case 1: return i % 2 == 0;
+      case 2: return j % 3 == 0;
+      case 3: return (i + j) % 3 == 0;
+      case 4: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0;
+      case 5: return (i * j) % 2 + (i * j) % 3 == 0;
+      case 6: return ((i * j) % 2 + (i * j) % 3) % 2 == 0;
+      case 7: return ((i * j) % 3 + (i + j) % 2) % 2 == 0;
+      default: throw new Error("bad maskPattern:" + maskPattern);
+    }
+  },
+  getErrorCorrectPolynomial: function(errorCorrectLength) {
+    let a = new QRPolynomial([1], 0);
+    for (let i = 0; i < errorCorrectLength; i++) {
+      a = a.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0));
+    }
+    return a;
+  },
+  getLengthInBits: function(mode, type) {
+    return 8;
+  },
+  getLostPoint: function(qrCode) {
+    const moduleCount = qrCode.getModuleCount();
+    let lostPoint = 0;
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount; col++) {
+        let sameCount = 0;
+        const dark = qrCode.isDark(row, col);
+        for (let r = -1; r <= 1; r++) {
+          if (row + r < 0 || moduleCount <= row + r) continue;
+          for (let c = -1; c <= 1; c++) {
+            if (col + c < 0 || moduleCount <= col + c) continue;
+            if (r == 0 && c == 0) continue;
+            if (dark == qrCode.isDark(row + r, col + c)) sameCount++;
+          }
+        }
+        if (sameCount > 5) lostPoint += (3 + sameCount - 5);
+      }
+    }
+    return lostPoint;
+  }
+};
+
+function generateQRSvg(text, size = 174) {
+  let typeNumber = 2;
+  if (text.length > 24) typeNumber = 3;
+  if (text.length > 42) typeNumber = 4;
+  if (text.length > 62) typeNumber = 5;
+
+  const qr = new QRCodeModel(typeNumber, 1); // Level M
+  qr.addData(text);
+  qr.make();
+
+  const count = qr.getModuleCount();
+  const margin = 2;
+  const total = count + margin * 2;
+
+  let path = "";
+  for (let r = 0; r < count; r++) {
+    for (let c = 0; c < count; c++) {
+      if (qr.isDark(r, c)) {
+        path += `M${c + margin},${r + margin}h1v1h-1z `;
+      }
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#ffffff"/><path d="${path}" fill="#000000"/></svg>`;
+}
+
+// =========================================================================
+// AERIS UI Controller
+// =========================================================================
+(() => {
+  const $ = id => document.getElementById(id);
+
+  // Views
+  const views = {
+    setup: $('viewSetup'),
+    recording: $('viewRecording'),
+    results: $('viewResults'),
+    data: $('viewData')
+  };
+
+  // Elements
+  const el = {
+    toast: $('toast'),
+    btnNavData: $('btnNavData'),
+    dataCountBadge: $('dataCountBadge'),
+    btnConnectionModal: $('btnConnectionModal'),
+    connectionStatus: $('connectionStatus'),
+    exitBtn: $('exitBtn'),
+    progressFill: $('progressFill'),
+
+    // Setup
+    selectParticipant: $('selectParticipant'),
+    selectLocation: $('selectLocation'),
+    selectWalkingType: $('selectWalkingType'),
+    selectClothing: $('selectClothing'),
+    btnAddParticipant: $('btnAddParticipant'),
+    btnAddLocation: $('btnAddLocation'),
+    btnStartTrial: $('btnStartTrial'),
+
+    // Recording
+    recStatusPill: $('recStatusPill'),
+    recPhaseText: $('recPhaseText'),
+    recInstructionText: $('recInstructionText'),
+    recElapsed: $('recElapsed'),
+    recPercent: $('recPercent'),
+    recSessionId: $('recSessionId'),
+    recCountdown: $('recCountdown'),
+    mSize: $('mSize'),
+    mPackets: $('mPackets'),
+    mRate: $('mRate'),
+    mGap: $('mGap'),
+    mRssi: $('mRssi'),
+    btnStopTrial: $('btnStopTrial'),
+
+    // Results
+    resBadge: $('resBadge'),
+    resPackets: $('resPackets'),
+    resRate: $('resRate'),
+    resGap: $('resGap'),
+    resRssi: $('resRssi'),
+    resDuration: $('resDuration'),
+    resDrops: $('resDrops'),
+    resPart: $('resPart'),
+    resLoc: $('resLoc'),
+    resChecksList: $('resChecksList'),
+    resSavedPath: $('resSavedPath'),
+    btnBackToSetup: $('btnBackToSetup'),
+    btnNewTrial: $('btnNewTrial'),
+
+    // Dataset Explorer
+    btnExportAllZip: $('btnExportAllZip'),
+    btnBackFromData: $('btnBackFromData'),
+    btnRefreshData: $('btnRefreshData'),
+    dataSearchInput: $('dataSearchInput'),
+    dataFilterQuality: $('dataFilterQuality'),
+    dataFilterActivity: $('dataFilterActivity'),
+    sessionsList: $('sessionsList'),
+    statTotalSessions: $('statTotalSessions'),
+    statPassSessions: $('statPassSessions'),
+    statTotalPackets: $('statTotalPackets'),
+    statTotalSize: $('statTotalSize'),
+
+    // Session AI Inspection Modal
+    modalSessionInspect: $('modalSessionInspect'),
+    inspectSessionId: $('inspectSessionId'),
+    inspParticipant: $('inspParticipant'),
+    inspDemographics: $('inspDemographics'),
+    inspLocation: $('inspLocation'),
+    inspScenario: $('inspScenario'),
+    inspActivity: $('inspActivity'),
+    inspClothing: $('inspClothing'),
+    inspQualityBadge: $('inspQualityBadge'),
+    inspMetrics: $('inspMetrics'),
+    inspLabelsTableBody: $('inspLabelsTableBody'),
+    inspQualityChecksGrid: $('inspQualityChecksGrid'),
+    inspMetadataGrid: $('inspMetadataGrid'),
+    inspFilesList: $('inspFilesList'),
+    btnCloseInspectModal: $('btnCloseInspectModal'),
+    btnCloseInspectModalBtn: $('btnCloseInspectModalBtn'),
+    btnDownloadCurrentSessionZip: $('btnDownloadCurrentSessionZip'),
+
+    // Modals
+    modalParticipant: $('modalParticipant'),
+    btnClosePartModal: $('btnClosePartModal'),
+    btnCancelPartModal: $('btnCancelPartModal'),
+    btnSavePart: $('btnSavePart'),
+    partName: $('partName'),
+    partHeight: $('partHeight'),
+    partBody: $('partBody'),
+    partGender: $('partGender'),
+
+    modalLocation: $('modalLocation'),
+    btnCloseLocModal: $('btnCloseLocModal'),
+    btnCancelLocModal: $('btnCancelLocModal'),
+    btnSaveLoc: $('btnSaveLoc'),
+    locName: $('locName'),
+    locDistance: $('locDistance'),
+    locScenario: $('locScenario'),
+    locNotes: $('locNotes'),
+
+    // Connection Modal
+    modalConnection: $('modalConnection'),
+    btnCloseConnModal: $('btnCloseConnModal'),
+    btnDoneConnModal: $('btnDoneConnModal'),
+    qrContainer: $('qrContainer'),
+    urlMdns: $('urlMdns'),
+    urlIp: $('urlIp'),
+    btnCopyMdns: $('btnCopyMdns'),
+    btnCopyIp: $('btnCopyIp')
+  };
+
+  // State
+  let currentView = 'setup';
+  let currentState = 'idle';
+  let isDemo = location.protocol === 'file:' || (location.hostname !== '127.0.0.1' && location.hostname !== 'localhost' && !location.hostname.endsWith('.local') && !/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname));
+  let toastTimeout = null;
+  let demoTimer = null;
+  let demoStartedAt = 0;
+  let pollInterval = 1500;
+  let activeParticipantMap = {};
+  let activeLocationMap = {};
+  let networkInfo = null;
+  let loadedSessions = [];
+  let currentInspectingSessionId = null;
+
+  const demoSchedule = [
+    ['WARM-UP', 'Keep the monitored path empty.', 2],
+    ['EMPTY CALIBRATION', 'Stay outside the monitored path.', 10],
+    ['EMPTY', 'Keep the monitored path completely empty.', 15],
+    ['ENTER NOW', 'Enter the monitored path and begin moving.', 3],
+    ['MOVEMENT', 'Walk naturally through the monitored path.', 15],
+    ['EXIT NOW', 'Leave the monitored path completely.', 3],
+    ['EMPTY', 'Remain outside until the trial finishes.', 15]
+  ];
+  const TOTAL_SCHEDULE_S = 63;
+
+  function showToast(msg, isError = false) {
+    if (!msg) return;
+    clearTimeout(toastTimeout);
+    el.toast.textContent = msg;
+    el.toast.className = 'toast show' + (isError ? ' error' : '');
+    toastTimeout = setTimeout(() => {
+      el.toast.className = 'toast';
+    }, 3500);
+  }
+
+  function setView(name) {
+    currentView = name;
+    Object.entries(views).forEach(([vName, vElem]) => {
+      if (vElem) {
+        if (vName === name) {
+          vElem.classList.add('active');
+        } else {
+          vElem.classList.remove('active');
+        }
+      }
+    });
+  }
+
+  function phaseCss(phase) {
+    const p = String(phase || '').toLowerCase();
+    if (p.includes('pass')) return 'pass';
+    if (p.includes('fail') || p.includes('error') || p.includes('incomplete')) return 'fail';
+    if (p.includes('warning')) return 'warning';
+    if (p.includes('enter') || p.includes('exit')) return 'transition';
+    if (p.includes('movement')) return 'movement';
+    if (p.includes('empty') || p.includes('calibration')) return 'empty';
+    return 'ready';
+  }
+
+  function formatVal(v, unit = '') {
+    return (v === null || v === undefined || v === '') ? '—' : `${v}${unit}`;
+  }
+
+  // HTTP API Client
+  async function api(path, method = 'GET', body = null) {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  // Load Dropdowns
+  async function loadParticipants(selectedId = null) {
+    try {
+      let list = [];
+      if (isDemo) {
+        list = [
+          { id: 1, participant_code: 'P001', name: 'Demo Participant 1', active: 1 },
+          { id: 2, participant_code: 'P002', name: 'Demo Participant 2', active: 1 }
+        ];
+      } else {
+        list = await api('/api/participants?active=1');
+      }
+      activeParticipantMap = {};
+      el.selectParticipant.innerHTML = '';
+      if (!list || list.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No active participants (Click + ADD)';
+        el.selectParticipant.appendChild(opt);
+        return;
+      }
+      list.forEach(p => {
+        activeParticipantMap[p.id] = p;
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.participant_code} — ${p.name}`;
+        el.selectParticipant.appendChild(opt);
+      });
+
+      const saved = selectedId || localStorage.getItem('aeris_last_participant_id');
+      if (saved && activeParticipantMap[saved]) {
+        el.selectParticipant.value = saved;
+      } else if (list.length > 0) {
+        el.selectParticipant.value = list[0].id;
+        localStorage.setItem('aeris_last_participant_id', list[0].id);
+      }
+    } catch (e) {
+      console.error('Failed to load participants', e);
+    }
+  }
+
+  async function loadLocations(selectedId = null) {
+    try {
+      let list = [];
+      if (isDemo) {
+        list = [
+          { id: 1, location_code: 'L001', name: 'Demo Hallway (LOS)', active: 1 },
+          { id: 2, location_code: 'L002', name: 'Demo Office (NLOS)', active: 1 }
+        ];
+      } else {
+        list = await api('/api/locations?active=1');
+      }
+      activeLocationMap = {};
+      el.selectLocation.innerHTML = '';
+      if (!list || list.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No active locations (Click + ADD)';
+        el.selectLocation.appendChild(opt);
+        return;
+      }
+      list.forEach(l => {
+        activeLocationMap[l.id] = l;
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = `${l.location_code} — ${l.name}`;
+        el.selectLocation.appendChild(opt);
+      });
+
+      const saved = selectedId || localStorage.getItem('aeris_last_location_id');
+      if (saved && activeLocationMap[saved]) {
+        el.selectLocation.value = saved;
+      } else if (list.length > 0) {
+        el.selectLocation.value = list[0].id;
+        localStorage.setItem('aeris_last_location_id', list[0].id);
+      }
+    } catch (e) {
+      console.error('Failed to load locations', e);
+    }
+  }
+
+  // Load Network Info & Render QR Code
+  async function updateNetworkInfo() {
+    try {
+      let info = {
+        mdns_url: 'http://aeris.local:8765',
+        ip_urls: ['http://10.22.17.102:8765'],
+        primary_url: 'http://10.22.17.102:8765'
+      };
+      if (!isDemo) {
+        info = await api('/api/network-info').catch(() => info);
+      }
+      networkInfo = info;
+
+      const mdns = info.mdns_url || `http://${location.hostname}:8765`;
+      const ipUrl = (info.ip_urls && info.ip_urls[0]) ? info.ip_urls[0] : (location.hostname !== '127.0.0.1' ? `http://${location.hostname}:8765` : 'http://10.22.17.102:8765');
+      const targetUrl = ipUrl || mdns;
+
+      el.urlMdns.textContent = mdns;
+      el.urlIp.textContent = ipUrl;
+
+      // Render high-quality SVG QR Code
+      el.qrContainer.innerHTML = generateQRSvg(targetUrl, 174);
+    } catch (e) {
+      console.error('Error loading network info:', e);
+    }
+  }
+
+  // Restore choices
+  function restoreSavedChoices() {
+    const walk = localStorage.getItem('aeris_last_walking_type');
+    if (walk) el.selectWalkingType.value = walk;
+    const cloth = localStorage.getItem('aeris_last_clothing');
+    if (cloth) el.selectClothing.value = cloth;
+  }
+
+  // Render Status / State updates
+  function render(s) {
+    if (!s) return;
+    const state = s.state || 'idle';
+    const previousState = currentState;
+    currentState = state;
+
+    const progress = Math.max(0, Math.min(100, Number(s.progress || 0)));
+    el.progressFill.style.width = progress + '%';
+
+    if (['preparing', 'running', 'stopping', 'finalizing'].includes(state)) {
+      if (currentView !== 'recording') {
+        setView('recording');
+      }
+      pollInterval = 500;
+      el.btnStartTrial.disabled = true;
+
+      const pClass = phaseCss(s.phase);
+      el.recPhaseText.textContent = s.phase || 'RECORDING';
+      el.recPhaseText.className = 'phase-text ' + pClass;
+      el.recInstructionText.textContent = s.instruction || '';
+      el.recStatusPill.textContent = (s.status_text || 'Capturing CSI').toUpperCase();
+      el.recCountdown.textContent = s.remaining_s == null ? '--.-' : Number(s.remaining_s).toFixed(1);
+
+      el.recElapsed.textContent = s.elapsed_s == null ? '00:00' :
+        `${String(Math.floor(s.elapsed_s / 60)).padStart(2, '0')}:${String(Math.floor(s.elapsed_s % 60)).padStart(2, '0')}`;
+      el.recPercent.textContent = Math.round(progress) + '%';
+      el.recSessionId.textContent = s.session_id || '—';
+
+      el.mSize.textContent = s.file_size_bytes ? ((s.file_size_bytes / 1048576).toFixed(2) + ' MB') : '—';
+      el.mPackets.textContent = formatVal(s.packet_count);
+      el.mRate.textContent = formatVal(s.packet_rate_hz == null ? null : Number(s.packet_rate_hz).toFixed(1), ' Hz');
+      el.mGap.textContent = formatVal(s.maximum_gap_s == null ? null : Number(s.maximum_gap_s).toFixed(3), ' s');
+      el.mRssi.textContent = formatVal(s.median_rssi_dbm == null ? null : Number(s.median_rssi_dbm).toFixed(1), ' dBm');
+
+      el.btnStopTrial.disabled = (state === 'stopping' || state === 'finalizing');
+    } else if (state === 'complete') {
+      if (previousState !== 'complete' && currentView !== 'data') {
+        setView('results');
+      } else if (currentView === 'recording') {
+        setView('results');
+      }
+
+      pollInterval = 1500;
+      el.btnStartTrial.disabled = false;
+      el.btnStopTrial.disabled = false;
+
+      const qStatus = s.quality_status || s.phase || 'PASS';
+      el.resBadge.textContent = qStatus;
+      el.resBadge.className = 'result-badge ' + phaseCss(qStatus);
+
+      el.resPackets.textContent = formatVal(s.packet_count);
+      el.resRate.textContent = formatVal(s.packet_rate_hz == null ? null : Number(s.packet_rate_hz).toFixed(1), ' Hz');
+      el.resGap.textContent = formatVal(s.maximum_gap_s == null ? null : Number(s.maximum_gap_s).toFixed(3), ' s');
+      el.resRssi.textContent = formatVal(s.median_rssi_dbm == null ? null : Number(s.median_rssi_dbm).toFixed(1), ' dBm');
+      el.resDuration.textContent = formatVal(s.duration_s == null ? null : Number(s.duration_s).toFixed(2), ' s');
+      el.resDrops.textContent = formatVal(s.kernel_drops);
+      el.resPart.textContent = formatVal(s.active_participant_code);
+      el.resLoc.textContent = formatVal(s.active_location_code);
+
+      el.resSavedPath.textContent = 'Saved session: ' + (s.session_dir || '—');
+
+      el.resChecksList.innerHTML = '';
+      const checks = s.quality_checks || {};
+      const labels = {
+        capture_duration: 'Capture Duration',
+        packet_rate: 'Packet Rate',
+        maximum_gap: 'Max Packet Gap',
+        frame_control: 'Frame Control Filter',
+        source_mac: 'Source MAC Match',
+        kernel_drops: 'Kernel Packet Drops'
+      };
+
+      Object.entries(checks).forEach(([chkName, chk]) => {
+        const item = document.createElement('div');
+        item.className = 'check-item ' + (chk.pass ? 'pass' : 'fail');
+        let detail = '';
+        if (chkName === 'maximum_gap') detail = `${Number(chk.value_s).toFixed(3)}s (max: ${Number(chk.maximum_s).toFixed(3)}s)`;
+        else if (chkName === 'packet_rate') detail = `${Number(chk.value_hz).toFixed(1)} Hz (min: ${Number(chk.minimum_hz).toFixed(1)} Hz)`;
+        else if (chkName === 'capture_duration') detail = `${Number(chk.value_s).toFixed(1)}s (min: ${Number(chk.minimum_s).toFixed(1)}s)`;
+        else if (chkName === 'kernel_drops') detail = `${chk.value ?? 0} drops`;
+        else detail = chk.pass ? 'OK' : 'Failed';
+        item.textContent = (chk.pass ? '✔ ' : '✖ ') + `${labels[chkName] || chkName}: ${detail}`;
+        el.resChecksList.appendChild(item);
+      });
+    } else {
+      // Idle or error state
+      pollInterval = 1500;
+      el.btnStartTrial.disabled = false;
+      el.btnStopTrial.disabled = false;
+
+      // If we were on recording view when state became idle, switch to setup
+      if (currentView === 'recording') {
+        setView('setup');
+      }
+
+      if (state === 'error' && s.error && previousState !== 'error') {
+        showToast(s.error, true);
+      }
+    }
+  }
+
+  // Reset to Setup handler (Fixes navigation loop)
+  async function handleResetToSetup() {
+    if (isDemo) {
+      clearInterval(demoTimer);
+      demoTimer = null;
+      currentState = 'idle';
+      el.progressFill.style.width = '0%';
+      el.btnStartTrial.disabled = false;
+      el.btnStopTrial.disabled = false;
+      el.btnStopTrial.textContent = '⏹ STOP TRIAL';
+      setView('setup');
+      return;
+    }
+
+    try {
+      el.btnStartTrial.disabled = false;
+      el.btnStopTrial.disabled = false;
+      el.btnStopTrial.textContent = '⏹ STOP TRIAL';
+      el.progressFill.style.width = '0%';
+      setView('setup');
+      const res = await api('/api/reset', 'POST');
+      render(res);
+    } catch (e) {
+      console.warn('Reset error:', e);
+      setView('setup');
+      el.btnStartTrial.disabled = false;
+    }
+  }
+
+  // Start Trial handler
+  async function handleStartTrial() {
+    const pId = el.selectParticipant.value;
+    const lId = el.selectLocation.value;
+    const wType = el.selectWalkingType.value;
+    const cloth = el.selectClothing.value;
+
+    if (!pId) {
+      showToast('Please select or add a participant first.', true);
+      return;
+    }
+    if (!lId) {
+      showToast('Please select or add a location first.', true);
+      return;
+    }
+
+    localStorage.setItem('aeris_last_participant_id', pId);
+    localStorage.setItem('aeris_last_location_id', lId);
+    localStorage.setItem('aeris_last_walking_type', wType);
+    localStorage.setItem('aeris_last_clothing', cloth);
+
+    el.btnStartTrial.disabled = true;
+
+    if (isDemo) {
+      demoStartedAt = performance.now();
+      clearInterval(demoTimer);
+      runDemoTick();
+      demoTimer = setInterval(runDemoTick, 100);
+      return;
+    }
+
+    try {
+      const res = await api('/api/start', 'POST', {
+        participant_id: parseInt(pId, 10),
+        location_id: parseInt(lId, 10),
+        walking_type: wType,
+        clothing: cloth
+      });
+      render(res);
+    } catch (e) {
+      showToast(e.message, true);
+      el.btnStartTrial.disabled = false;
+    }
+  }
+
+  // Stop Trial handler
+  async function handleStopTrial() {
+    if (!confirm('Stop this active trial and finalize recording?')) return;
+    el.btnStopTrial.disabled = true;
+    el.btnStopTrial.textContent = 'STOPPING...';
+
+    if (isDemo) {
+      clearInterval(demoTimer);
+      demoTimer = null;
+      render({
+        state: 'complete',
+        quality_status: 'INCOMPLETE',
+        phase: 'INCOMPLETE',
+        instruction: 'Trial stopped before completing full duration.',
+        duration_s: (performance.now() - demoStartedAt) / 1000,
+        packet_count: 1200,
+        packet_rate_hz: 50.0,
+        maximum_gap_s: 0.12,
+        median_rssi_dbm: -45.0,
+        kernel_drops: 0,
+        active_participant_code: activeParticipantMap[el.selectParticipant.value]?.participant_code || 'P001',
+        active_location_code: activeLocationMap[el.selectLocation.value]?.location_code || 'L001',
+        session_dir: '/home/aeris/aeris-data/sessions/demo-incomplete',
+        quality_checks: {
+          capture_duration: { pass: false, value_s: 20, minimum_s: 61 }
+        }
+      });
+      el.btnStopTrial.textContent = '⏹ STOP TRIAL';
+      return;
+    }
+
+    try {
+      const res = await api('/api/stop', 'POST');
+      render(res);
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      el.btnStopTrial.textContent = '⏹ STOP TRIAL';
+    }
+  }
+
+  // Demo simulation tick
+  function runDemoTick() {
+    const elapsed = (performance.now() - demoStartedAt) / 1000;
+    if (elapsed >= TOTAL_SCHEDULE_S) {
+      clearInterval(demoTimer);
+      demoTimer = null;
+      render({
+        state: 'complete',
+        quality_status: 'PASS',
+        phase: 'PASS',
+        instruction: 'Trial complete. Review quality metrics below.',
+        duration_s: 62.8,
+        packet_count: 4210,
+        packet_rate_hz: 67.2,
+        maximum_gap_s: 0.084,
+        median_rssi_dbm: -46.5,
+        kernel_drops: 0,
+        active_participant_code: 'P001',
+        active_location_code: 'L001',
+        session_dir: '/home/aeris/aeris-data/sessions/20260822-120000-L001-P001-enter',
+        quality_checks: {
+          capture_duration: { pass: true, value_s: 62.8, minimum_s: 61.0 },
+          packet_rate: { pass: true, value_hz: 67.2, minimum_hz: 40.0 },
+          maximum_gap: { pass: true, value_s: 0.084, maximum_s: 1.0 },
+          frame_control: { pass: true, matching_fraction: 1.0 },
+          source_mac: { pass: true },
+          kernel_drops: { pass: true, value: 0 }
+        }
+      });
+      return;
+    }
+
+    let cursor = 0;
+    let curr = demoSchedule[0];
+    let phaseElapsed = elapsed;
+    for (const p of demoSchedule) {
+      if (elapsed < cursor + p[2]) {
+        curr = p;
+        phaseElapsed = elapsed - cursor;
+        break;
+      }
+      cursor += p[2];
+    }
+
+    render({
+      state: 'running',
+      phase: curr[0],
+      instruction: curr[1],
+      status_text: 'Capturing CSI',
+      remaining_s: Math.max(0, curr[2] - phaseElapsed),
+      elapsed_s: elapsed,
+      progress: (elapsed / TOTAL_SCHEDULE_S) * 100,
+      file_size_bytes: elapsed * 24000,
+      packet_count: Math.floor(elapsed * 67),
+      packet_rate_hz: 67.0,
+      maximum_gap_s: 0.08,
+      median_rssi_dbm: -46.0,
+      session_id: '20260822-demo-session'
+    });
+  }
+
+  // Modals logic
+  function openModal(modal) {
+    modal.classList.add('show');
+  }
+
+  function closeModal(modal) {
+    modal.classList.remove('show');
+  }
+
+  async function handleSaveParticipant() {
+    const name = el.partName.value.trim();
+    if (!name) {
+      showToast('Participant name is required.', true);
+      el.partName.focus();
+      return;
+    }
+
+    const payload = {
+      name,
+      height_cm: el.partHeight.value ? parseFloat(el.partHeight.value) : null,
+      body_type: el.partBody.value,
+      gender: el.partGender.value
+    };
+
+    if (isDemo) {
+      closeModal(el.modalParticipant);
+      showToast(`Participant '${name}' added (Demo).`);
+      el.partName.value = '';
+      el.partHeight.value = '';
+      return;
+    }
+
+    try {
+      const created = await api('/api/participants', 'POST', payload);
+      closeModal(el.modalParticipant);
+      el.partName.value = '';
+      el.partHeight.value = '';
+      showToast(`Added participant ${created.participant_code} (${created.name})`);
+      localStorage.setItem('aeris_last_participant_id', created.id);
+      await loadParticipants(created.id);
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  }
+
+  async function handleSaveLocation() {
+    const name = el.locName.value.trim();
+    if (!name) {
+      showToast('Location name is required.', true);
+      el.locName.focus();
+      return;
+    }
+
+    const payload = {
+      name,
+      pi_hotspot_distance_m: el.locDistance.value ? parseFloat(el.locDistance.value) : null,
+      scenario: el.locScenario.value,
+      notes: el.locNotes.value.trim() || null
+    };
+
+    if (isDemo) {
+      closeModal(el.modalLocation);
+      showToast(`Location '${name}' added (Demo).`);
+      el.locName.value = '';
+      el.locDistance.value = '';
+      el.locNotes.value = '';
+      return;
+    }
+
+    try {
+      const created = await api('/api/locations', 'POST', payload);
+      closeModal(el.modalLocation);
+      el.locName.value = '';
+      el.locDistance.value = '';
+      el.locNotes.value = '';
+      showToast(`Added location ${created.location_code} (${created.name})`);
+      localStorage.setItem('aeris_last_location_id', created.id);
+      await loadLocations(created.id);
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0.001';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let success = false;
+    try {
+      success = document.execCommand('copy');
+    } catch (err) {
+      success = false;
+    }
+    document.body.removeChild(ta);
+    return success;
+  }
+
+  async function copyText(text, btn) {
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch (e) {
+        copied = fallbackCopy(text);
+      }
+    } else {
+      copied = fallbackCopy(text);
+    }
+
+    if (copied) {
+      const orig = btn.textContent;
+      btn.textContent = 'COPIED!';
+      btn.style.background = 'var(--cyan)';
+      btn.style.color = '#04121b';
+      showToast(`Copied to clipboard: ${text}`);
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+      }, 1800);
+    } else {
+      showToast(`Please manually copy: ${text}`);
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  // =========================================================================
+  // Dataset Explorer & AI Inspection Functions
+  // =========================================================================
+  async function loadSessions(silent = false) {
+    try {
+      let sessions = [];
+      if (isDemo) {
+        sessions = [
+          {
+            session_id: '20260823-135822-L001-P001-enter',
+            created_at: '2026-08-23 13:58:22',
+            participant_code: 'P001',
+            participant_name: 'Rahul Sharma',
+            height_cm: 176,
+            body_type: 'broad',
+            gender: 'male',
+            location_code: 'L001',
+            location_name: 'Main Lab Area',
+            scenario: 'LOS',
+            pi_hotspot_distance_m: 3.2,
+            walking_type: 'enter',
+            clothing: 'normal',
+            quality_status: 'PASS',
+            quality_pass: true,
+            packet_count: 3996,
+            packet_rate_hz: 62.7,
+            maximum_gap_s: 0.40,
+            duration_s: 63.8,
+            median_rssi_dbm: -28,
+            files: { 'capture.pcap': 1326736, 'labels.csv': 1016, 'metadata.json': 2507, 'quality.json': 1632, 'traffic.log': 297291 },
+            total_size_bytes: 1629182
+          }
+        ];
+      } else {
+        sessions = await api('/api/sessions');
+      }
+
+      loadedSessions = Array.isArray(sessions) ? sessions : [];
+      updateDatasetStats();
+      renderSessionsList();
+    } catch (err) {
+      console.error('Failed to load sessions', err);
+      if (!silent) showToast('Failed to load dataset: ' + err.message, true);
+    }
+  }
+
+  function updateDatasetStats() {
+    const total = loadedSessions.length;
+    const passCount = loadedSessions.filter(s => s.quality_pass || s.quality_status === 'PASS').length;
+    const totalPkts = loadedSessions.reduce((sum, s) => sum + (Number(s.packet_count) || 0), 0);
+    const totalBytes = loadedSessions.reduce((sum, s) => sum + (Number(s.total_size_bytes) || 0), 0);
+
+    if (el.statTotalSessions) el.statTotalSessions.textContent = total;
+    if (el.statPassSessions) el.statPassSessions.textContent = `${passCount} PASS`;
+    if (el.statTotalPackets) el.statTotalPackets.textContent = totalPkts.toLocaleString();
+    if (el.statTotalSize) el.statTotalSize.textContent = formatBytes(totalBytes);
+    if (el.dataCountBadge) el.dataCountBadge.textContent = total;
+  }
+
+  function renderSessionsList() {
+    if (!el.sessionsList) return;
+    const qFilter = el.dataFilterQuality ? el.dataFilterQuality.value : 'all';
+    const aFilter = el.dataFilterActivity ? el.dataFilterActivity.value : 'all';
+    const query = el.dataSearchInput ? el.dataSearchInput.value.toLowerCase().trim() : '';
+
+    const filtered = loadedSessions.filter(s => {
+      if (qFilter === 'pass' && !s.quality_pass && s.quality_status !== 'PASS') return false;
+      if (qFilter === 'fail' && (s.quality_pass || s.quality_status === 'PASS')) return false;
+      if (aFilter !== 'all' && s.walking_type !== aFilter) return false;
+      if (query) {
+        const text = [
+          s.session_id,
+          s.participant_code,
+          s.participant_name,
+          s.location_code,
+          s.location_name,
+          s.scenario,
+          s.walking_type,
+          s.clothing,
+          s.quality_status
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!text.includes(query)) return false;
+      }
+      return true;
+    });
+
+    el.sessionsList.innerHTML = '';
+    if (filtered.length === 0) {
+      el.sessionsList.innerHTML = `
+        <div class="empty-sessions-msg">
+          ${loadedSessions.length === 0 ? 'No recorded sessions yet. Start a trial in SETUP to record CSI data.' : 'No sessions match the selected filters.'}
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'session-row-card';
+
+      const qClass = (s.quality_status === 'PASS' || s.quality_pass) ? 'pass' : (s.quality_status === 'WARNING' ? 'warning' : 'fail');
+      const qText = s.quality_status || (s.quality_pass ? 'PASS' : 'INCOMPLETE');
+
+      const filesObj = s.files || {};
+      const fileTagsHtml = Object.entries(filesObj).map(([fname, size]) => {
+        let cls = 'file-tag';
+        if (fname.endsWith('.pcap')) cls += ' pcap';
+        else if (fname.endsWith('.csv')) cls += ' csv';
+        else if (fname.endsWith('.json')) cls += ' json';
+        return `<span class="${cls}" title="${formatBytes(size)}">${fname} (${formatBytes(size)})</span>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="session-row-top">
+          <div>
+            <span class="session-id-text">${s.session_id}</span>
+            <span class="session-date-text">${s.created_at || ''}</span>
+          </div>
+          <div class="result-badge ${qClass}" style="font-size:12px; height:24px; padding:0 8px; border-width:1px;">${qText}</div>
+        </div>
+
+        <div class="session-row-meta">
+          <div class="meta-pill"><span>Participant:</span> <b>${s.participant_code}${s.participant_name ? ' (' + s.participant_name + ')' : ''}</b></div>
+          <div class="meta-pill"><span>Location:</span> <b>${s.location_code} (${s.scenario || 'LOS'}${s.pi_hotspot_distance_m ? ', ' + s.pi_hotspot_distance_m + 'm' : ''})</b></div>
+          <div class="meta-pill"><span>Action:</span> <b>${s.walking_type || 'enter'}</b></div>
+          <div class="meta-pill"><span>Clothing:</span> <b>${s.clothing || 'normal'}</b></div>
+          <div class="meta-pill"><span>Packets:</span> <b>${(Number(s.packet_count) || 0).toLocaleString()} pkts</b></div>
+          <div class="meta-pill"><span>Rate:</span> <b>${s.packet_rate_hz ? Number(s.packet_rate_hz).toFixed(1) + ' Hz' : '—'}</b></div>
+          <div class="meta-pill"><span>Duration:</span> <b>${s.duration_s ? Number(s.duration_s).toFixed(1) + ' s' : '—'}</b></div>
+          ${s.median_rssi_dbm !== null && s.median_rssi_dbm !== undefined ? `<div class="meta-pill"><span>RSSI:</span> <b>${s.median_rssi_dbm} dBm</b></div>` : ''}
+        </div>
+
+        <div class="session-row-bottom">
+          <div class="files-pills">
+            ${fileTagsHtml || '<span class="file-tag">No files recorded</span>'}
+          </div>
+          <div class="session-card-actions">
+            <button class="mini-action-btn inspect-btn" data-id="${s.session_id}" type="button">🔍 INSPECT AI DATA</button>
+            <button class="mini-action-btn download download-btn" data-id="${s.session_id}" type="button">⬇ ZIP</button>
+          </div>
+        </div>
+      `;
+
+      card.querySelector('.inspect-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        inspectSession(s.session_id);
+      });
+
+      card.querySelector('.download-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        downloadSessionZip(s.session_id);
+      });
+
+      el.sessionsList.appendChild(card);
+    });
+  }
+
+  async function inspectSession(sessionId) {
+    try {
+      currentInspectingSessionId = sessionId;
+      if (el.inspectSessionId) el.inspectSessionId.textContent = sessionId;
+
+      openModal(el.modalSessionInspect);
+      if (el.inspLabelsTableBody) el.inspLabelsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:15px;">Loading session data...</td></tr>';
+      if (el.inspQualityChecksGrid) el.inspQualityChecksGrid.innerHTML = '<div>Loading quality checks...</div>';
+      if (el.inspMetadataGrid) el.inspMetadataGrid.innerHTML = '<div>Loading metadata...</div>';
+      if (el.inspFilesList) el.inspFilesList.innerHTML = '<div>Loading files...</div>';
+
+      let details = null;
+      if (isDemo) {
+        details = {
+          session_id: sessionId,
+          database_record: {
+            participant_code: 'P001',
+            participant_name: 'Rahul Sharma',
+            height_cm: 176,
+            body_type: 'broad',
+            gender: 'male',
+            location_code: 'L001',
+            location_name: 'Main Lab Area',
+            scenario: 'LOS',
+            pi_hotspot_distance_m: 3.2,
+            walking_type: 'enter',
+            clothing: 'normal',
+            quality_status: 'PASS',
+            packet_count: 3996,
+            packet_rate_hz: 62.7
+          },
+          metadata: {
+            participant_code: 'P001',
+            location_code: 'L001',
+            scenario: 'LOS',
+            pi_hotspot_distance_m: 3.2,
+            walking_type: 'enter',
+            clothing: 'normal',
+            height_cm: 176,
+            body_type: 'broad',
+            gender: 'male',
+            radio: { channel: 6, bandwidth_mhz: 20, bssid: '06:c5:98:2f:ea:cc', ssid: 'Vivo T2x 5G', capture_interface: 'wlan0', traffic_interface: 'wlan1' },
+            hostname: 'aeris'
+          },
+          quality: {
+            quality_status: 'PASS',
+            quality_pass: true,
+            packet_count: 3996,
+            duration_s: 63.8,
+            packet_rate_hz: 62.65,
+            maximum_gap_s: 0.40,
+            median_rssi_dbm: -28,
+            checks: {
+              capture_duration: { pass: true, value_s: 63.8, minimum_s: 61.0 },
+              packet_rate: { pass: true, value_hz: 62.65, minimum_hz: 40.0 },
+              maximum_gap: { pass: true, value_s: 0.40, maximum_s: 1.0 },
+              frame_control: { pass: true, expected: '0x88', matching_fraction: 1.0 },
+              source_mac: { pass: true, expected: '06:c5:98:2f:ea:cc' },
+              kernel_drops: { pass: true, value: 0 }
+            }
+          },
+          labels: [
+            { phase_index: 0, label: 'warmup', start_s: 0.71, end_s: 2.72, valid_for_training: 'False', instruction: 'Keep the monitored path empty.' },
+            { phase_index: 1, label: 'empty_calibration', start_s: 2.72, end_s: 12.75, valid_for_training: 'True', instruction: 'Stay outside the monitored path.' },
+            { phase_index: 2, label: 'empty', start_s: 12.75, end_s: 27.78, valid_for_training: 'True', instruction: 'Keep the monitored path completely empty.' },
+            { phase_index: 3, label: 'transition_enter', start_s: 27.78, end_s: 30.79, valid_for_training: 'False', instruction: 'Enter the monitored path and begin moving.' },
+            { phase_index: 4, label: 'movement', start_s: 30.79, end_s: 45.82, valid_for_training: 'True', instruction: 'Walk naturally through the monitored path.' },
+            { phase_index: 5, label: 'transition_exit', start_s: 45.82, end_s: 48.83, valid_for_training: 'False', instruction: 'Leave the monitored path completely.' },
+            { phase_index: 6, label: 'empty', start_s: 48.83, end_s: 63.87, valid_for_training: 'True', instruction: 'Remain outside until the trial finishes.' }
+          ],
+          files: { 'capture.pcap': 1326736, 'labels.csv': 1016, 'metadata.json': 2507, 'quality.json': 1632, 'traffic.log': 297291, 'capture.log': 169 }
+        };
+      } else {
+        details = await api(`/api/sessions/${sessionId}`);
+      }
+
+      const meta = details.metadata || {};
+      const qual = details.quality || {};
+      const dbRec = details.database_record || {};
+      const labels = details.labels || [];
+      const files = details.files || {};
+
+      // 1. Overview Tiles
+      const pCode = meta.participant_code || dbRec.participant_code || '—';
+      const pName = dbRec.participant_name || '';
+      const pHeight = meta.height_cm || dbRec.height_cm || '—';
+      const pBody = meta.body_type || dbRec.body_type || '—';
+      const pGender = meta.gender || dbRec.gender || '—';
+      if (el.inspParticipant) el.inspParticipant.textContent = `${pCode}${pName ? ' (' + pName + ')' : ''}`;
+      if (el.inspDemographics) el.inspDemographics.textContent = `Height: ${pHeight}cm • Body: ${pBody} • Gender: ${pGender}`;
+
+      const lCode = meta.location_code || dbRec.location_code || '—';
+      const lName = dbRec.location_name || '';
+      const lScen = meta.scenario || dbRec.scenario || 'LOS';
+      const lDist = meta.pi_hotspot_distance_m || dbRec.pi_hotspot_distance_m || '—';
+      if (el.inspLocation) el.inspLocation.textContent = `${lCode}${lName ? ' (' + lName + ')' : ''}`;
+      if (el.inspScenario) el.inspScenario.textContent = `Scenario: ${lScen} • Distance: ${lDist}m`;
+
+      const wType = meta.walking_type || dbRec.walking_type || 'enter';
+      const clothing = meta.clothing || dbRec.clothing || 'normal';
+      if (el.inspActivity) el.inspActivity.textContent = `Walking: ${wType}`;
+      if (el.inspClothing) el.inspClothing.textContent = `Clothing: ${clothing}`;
+
+      const qStatus = qual.quality_status || dbRec.quality_status || 'PASS';
+      const qPass = qual.quality_pass || qStatus === 'PASS';
+      if (el.inspQualityBadge) {
+        el.inspQualityBadge.textContent = qStatus;
+        el.inspQualityBadge.className = 'result-badge ' + (qPass ? 'pass' : 'fail');
+      }
+      const pkts = qual.packet_count || dbRec.packet_count || 0;
+      const rate = qual.packet_rate_hz || dbRec.packet_rate_hz || 0;
+      const dur = qual.duration_s || 0;
+      if (el.inspMetrics) el.inspMetrics.textContent = `${Number(pkts).toLocaleString()} pkts • ${Number(rate).toFixed(1)} Hz • ${Number(dur).toFixed(1)}s`;
+
+      // 2. Labels Table
+      if (el.inspLabelsTableBody) {
+        el.inspLabelsTableBody.innerHTML = '';
+        if (labels.length === 0) {
+          el.inspLabelsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:12px; color:var(--muted);">No phase labels found.</td></tr>';
+        } else {
+          labels.forEach((lab, idx) => {
+            const startS = lab.start_s !== undefined ? Number(lab.start_s).toFixed(2) : '—';
+            const endS = lab.end_s !== undefined ? Number(lab.end_s).toFixed(2) : '—';
+            const duration = (lab.start_s !== undefined && lab.end_s !== undefined) ? (Number(lab.end_s) - Number(lab.start_s)).toFixed(2) + 's' : '—';
+            const isValid = String(lab.valid_for_training).toLowerCase() === 'true' || lab.valid_for_training === true;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${lab.phase_index !== undefined ? lab.phase_index : idx}</td>
+              <td><b>${lab.label || '—'}</b></td>
+              <td>${startS}s</td>
+              <td>${endS}s</td>
+              <td>${duration}</td>
+              <td><span class="valid-tag ${isValid ? 'yes' : 'no'}">${isValid ? '✔ Valid' : '✖ Buffer'}</span></td>
+              <td style="color:var(--muted);">${lab.instruction || '—'}</td>
+            `;
+            el.inspLabelsTableBody.appendChild(tr);
+          });
+        }
+      }
+
+      // 3. Quality Checks Breakdown
+      if (el.inspQualityChecksGrid) {
+        el.inspQualityChecksGrid.innerHTML = '';
+        const checks = qual.checks || {};
+        const checkEntries = Object.entries(checks);
+        if (checkEntries.length === 0) {
+          el.inspQualityChecksGrid.innerHTML = '<div style="color:var(--muted);">No quality check benchmarks recorded.</div>';
+        } else {
+          checkEntries.forEach(([k, v]) => {
+            const pass = v.pass === true;
+            const item = document.createElement('div');
+            item.className = 'check-item ' + (pass ? 'pass' : 'fail');
+            let valStr = '';
+            if (v.value_s !== undefined) valStr = ` (${v.value_s.toFixed(2)}s)`;
+            else if (v.value_hz !== undefined) valStr = ` (${v.value_hz.toFixed(1)} Hz)`;
+            else if (v.value !== undefined) valStr = ` (${v.value})`;
+            item.innerHTML = `${pass ? '✔' : '✖'} <strong>${k.replace(/_/g, ' ')}</strong>${valStr}`;
+            el.inspQualityChecksGrid.appendChild(item);
+          });
+        }
+      }
+
+      // 4. Radio & Metadata
+      if (el.inspMetadataGrid) {
+        el.inspMetadataGrid.innerHTML = '';
+        const radio = meta.radio || {};
+        const metaItems = [
+          ['Channel / Bandwidth', radio.channel ? `Ch ${radio.channel} (${radio.bandwidth_mhz || 20} MHz)` : '—'],
+          ['SSID / BSSID', `${radio.ssid || '—'} (${radio.bssid || '—'})`],
+          ['Capture Interface', `${radio.capture_interface || 'wlan0'} (${radio.capture_mac || '—'})`],
+          ['Traffic Interface', `${radio.traffic_interface || 'wlan1'} (${radio.traffic_mac || '—'})`],
+          ['Gateway IP', radio.gateway || '—'],
+          ['Target Device Host', meta.hostname || 'aeris']
+        ];
+        metaItems.forEach(([lbl, val]) => {
+          const div = document.createElement('div');
+          div.className = 'inspect-info-tile';
+          div.innerHTML = `<label>${lbl}</label><strong>${val}</strong>`;
+          el.inspMetadataGrid.appendChild(div);
+        });
+      }
+
+      // 5. Files List
+      if (el.inspFilesList) {
+        el.inspFilesList.innerHTML = '';
+        const fileEntries = Object.entries(files);
+        if (fileEntries.length === 0) {
+          el.inspFilesList.innerHTML = '<span style="color:var(--muted);">No files found.</span>';
+        } else {
+          fileEntries.forEach(([fname, fsz]) => {
+            const pill = document.createElement('div');
+            pill.className = 'meta-pill';
+            pill.innerHTML = `<span>${fname}:</span> <b>${formatBytes(fsz)}</b>`;
+            el.inspFilesList.appendChild(pill);
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to inspect session', err);
+      showToast('Inspection failed: ' + err.message, true);
+    }
+  }
+
+  function downloadSessionZip(sessionId) {
+    if (isDemo) {
+      showToast(`[Demo] Simulating download for ${sessionId}.zip`);
+      return;
+    }
+    showToast(`Downloading ${sessionId}.zip...`);
+    const a = document.createElement('a');
+    a.href = `/api/sessions/${sessionId}/zip`;
+    a.download = `${sessionId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function exportFullDatasetZip() {
+    if (isDemo) {
+      showToast('[Demo] Simulating complete dataset ZIP export...');
+      return;
+    }
+    showToast('📦 Packaging complete dataset ZIP archive... download will begin shortly.');
+    const a = document.createElement('a');
+    a.href = '/api/export/zip';
+    a.download = 'aeris-csi-dataset.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // Event Listeners
+  el.btnStartTrial.addEventListener('click', handleStartTrial);
+  el.btnStopTrial.addEventListener('click', handleStopTrial);
+
+  el.btnBackToSetup.addEventListener('click', handleResetToSetup);
+  el.btnNewTrial.addEventListener('click', handleResetToSetup);
+
+  // Dataset Explorer navigation
+  el.btnNavData.addEventListener('click', async () => {
+    setView('data');
+    await loadSessions();
+  });
+
+  el.btnBackFromData.addEventListener('click', () => {
+    setView('setup');
+  });
+
+  el.btnExportAllZip.addEventListener('click', () => {
+    exportFullDatasetZip();
+  });
+
+  el.btnRefreshData.addEventListener('click', async () => {
+    await loadSessions();
+    showToast('Dataset refreshed.');
+  });
+
+  if (el.dataSearchInput) {
+    el.dataSearchInput.addEventListener('input', () => renderSessionsList());
+  }
+  if (el.dataFilterQuality) {
+    el.dataFilterQuality.addEventListener('change', () => renderSessionsList());
+  }
+  if (el.dataFilterActivity) {
+    el.dataFilterActivity.addEventListener('change', () => renderSessionsList());
+  }
+
+  // Inspection modal buttons
+  el.btnCloseInspectModal.addEventListener('click', () => closeModal(el.modalSessionInspect));
+  el.btnCloseInspectModalBtn.addEventListener('click', () => closeModal(el.modalSessionInspect));
+  el.btnDownloadCurrentSessionZip.addEventListener('click', () => {
+    if (currentInspectingSessionId) {
+      downloadSessionZip(currentInspectingSessionId);
+    }
+  });
+
+  // Modals trigger
+  el.btnAddParticipant.addEventListener('click', () => {
+    el.partName.value = '';
+    el.partHeight.value = '';
+    openModal(el.modalParticipant);
+    setTimeout(() => el.partName.focus(), 100);
+  });
+  el.btnClosePartModal.addEventListener('click', () => closeModal(el.modalParticipant));
+  el.btnCancelPartModal.addEventListener('click', () => closeModal(el.modalParticipant));
+  el.btnSavePart.addEventListener('click', handleSaveParticipant);
+
+  el.btnAddLocation.addEventListener('click', () => {
+    el.locName.value = '';
+    el.locDistance.value = '';
+    el.locNotes.value = '';
+    openModal(el.modalLocation);
+    setTimeout(() => el.locName.focus(), 100);
+  });
+  el.btnCloseLocModal.addEventListener('click', () => closeModal(el.modalLocation));
+  el.btnCancelLocModal.addEventListener('click', () => closeModal(el.modalLocation));
+  el.btnSaveLoc.addEventListener('click', handleSaveLocation);
+
+  // Connection QR modal
+  el.btnConnectionModal.addEventListener('click', async () => {
+    await updateNetworkInfo();
+    openModal(el.modalConnection);
+  });
+  el.btnCloseConnModal.addEventListener('click', () => closeModal(el.modalConnection));
+  el.btnDoneConnModal.addEventListener('click', () => closeModal(el.modalConnection));
+
+  el.btnCopyMdns.addEventListener('click', () => copyText(el.urlMdns.textContent, el.btnCopyMdns));
+  el.btnCopyIp.addEventListener('click', () => copyText(el.urlIp.textContent, el.btnCopyIp));
+  el.urlMdns.addEventListener('click', () => copyText(el.urlMdns.textContent, el.btnCopyMdns));
+  el.urlIp.addEventListener('click', () => copyText(el.urlIp.textContent, el.btnCopyIp));
+
+  // Close modals on backdrop click
+  [el.modalParticipant, el.modalLocation, el.modalConnection, el.modalSessionInspect].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', e => {
+        if (e.target === modal) closeModal(modal);
+      });
+    }
+  });
+
+  // Exit app
+  el.exitBtn.addEventListener('click', async () => {
+    if (!confirm('Close AERIS Recorder? Any active recording will be safely finalized.')) return;
+    if (isDemo) {
+      window.close();
+      return;
+    }
+    try {
+      await api('/api/shutdown', 'POST');
+      document.body.innerHTML = '<div style="display:grid;place-items:center;height:100vh;font-size:24px;font-weight:800;color:#36d9ff;">AERIS Recorder closed. You may close this tab.</div>';
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  });
+
+  // Sync / Polling loop
+  async function pollStatus() {
+    if (isDemo) return;
+    try {
+      const s = await api('/api/status');
+      el.btnConnectionModal.classList.remove('offline', 'demo');
+      el.connectionStatus.textContent = 'Connected';
+      render(s);
+    } catch (e) {
+      el.btnConnectionModal.classList.add('offline');
+      el.connectionStatus.textContent = 'Offline';
+    } finally {
+      setTimeout(pollStatus, pollInterval);
+    }
+  }
+
+  // Initialization
+  (async () => {
+    restoreSavedChoices();
+    updateNetworkInfo();
+    if (isDemo) {
+      el.btnConnectionModal.classList.add('demo');
+      el.connectionStatus.textContent = 'Design Preview';
+      await loadParticipants();
+      await loadLocations();
+      await loadSessions(true);
+      setView('setup');
+    } else {
+      await loadParticipants();
+      await loadLocations();
+      await loadSessions(true);
+      pollStatus();
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
