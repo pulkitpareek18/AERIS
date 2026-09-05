@@ -1460,6 +1460,26 @@ header {
             </select>
           </div>
         </div>
+
+        <!-- Human Count (Inside) Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Human Count (Inside)</span>
+          </div>
+          <div class="setup-select-wrap">
+            <input type="number" class="setup-select" id="inputCountInside" aria-label="Human Count Inside" value="0" min="0" style="padding: 12px; font-size: 1.1rem;">
+          </div>
+        </div>
+
+        <!-- Human Count (Outside) Card -->
+        <div class="setup-card">
+          <div class="card-header">
+            <span class="card-label">Human Count (Outside)</span>
+          </div>
+          <div class="setup-select-wrap">
+            <input type="number" class="setup-select" id="inputCountOutside" aria-label="Human Count Outside" value="0" min="0" style="padding: 12px; font-size: 1.1rem;">
+          </div>
+        </div>
       </div>
 
       <button class="start-btn" id="btnStartTrial" type="button">
@@ -2595,6 +2615,10 @@ function generateQRSvg(text, size = 174) {
     if (walk) el.selectWalkingType.value = walk;
     const cloth = localStorage.getItem('aeris_last_clothing');
     if (cloth) el.selectClothing.value = cloth;
+    const countIn = localStorage.getItem('aeris_last_count_inside');
+    if (countIn !== null) document.getElementById('inputCountInside').value = countIn;
+    const countOut = localStorage.getItem('aeris_last_count_outside');
+    if (countOut !== null) document.getElementById('inputCountOutside').value = countOut;
   }
 
   // Render Status / State updates
@@ -2734,6 +2758,8 @@ function generateQRSvg(text, size = 174) {
     const lId = el.selectLocation.value;
     const wType = el.selectWalkingType.value;
     const cloth = el.selectClothing.value;
+    const countIn = document.getElementById('inputCountInside').value;
+    const countOut = document.getElementById('inputCountOutside').value;
 
     if (!pId) {
       showToast('Please select or add a participant first.', true);
@@ -2748,6 +2774,8 @@ function generateQRSvg(text, size = 174) {
     localStorage.setItem('aeris_last_location_id', lId);
     localStorage.setItem('aeris_last_walking_type', wType);
     localStorage.setItem('aeris_last_clothing', cloth);
+    localStorage.setItem('aeris_last_count_inside', countIn);
+    localStorage.setItem('aeris_last_count_outside', countOut);
 
     el.btnStartTrial.disabled = true;
 
@@ -2764,7 +2792,9 @@ function generateQRSvg(text, size = 174) {
         participant_id: parseInt(pId, 10),
         location_id: parseInt(lId, 10),
         walking_type: wType,
-        clothing: cloth
+        clothing: cloth,
+        human_count_inside: parseInt(countIn, 10) || 0,
+        human_count_outside: parseInt(countOut, 10) || 0
       });
       render(res);
     } catch (e) {

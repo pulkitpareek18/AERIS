@@ -1,0 +1,6 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn scp -r /Users/pulkitpareek18/Desktop/AERIS/aeris-recorder aeris@10.203.223.102:/home/aeris/aeris-recorder-new
+expect "password:"
+send "aeris\r"
+expect eof

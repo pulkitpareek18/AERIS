@@ -1,0 +1,198 @@
+datasets:
+  - dataset_id: aeris
+    official_name: AERIS Recorder native Nexmon CSI sessions
+    official_url: https://github.com/pulkitpareek18/AERIS
+    download_url:
+    citation: "AERIS project repository; cite the project plus Nexmon CSI when publishing."
+    license: verification_required
+    source_format: "AERIS session directory: capture.pcap, metadata.json, labels.csv, quality.json, optional aeris.db metadata"
+    csi_hardware_chipset: "Broadcom BCM43455 via Nexmon CSI on Raspberry Pi 4"
+    frequency_band: "2.4 GHz or 5 GHz depending on configured hotspot"
+    channel_bandwidth: "20/40/80 MHz as reported by recorder metadata"
+    number_of_subcarriers: "64/128/256 raw Nexmon carriers including guard/null carriers"
+    antenna_configuration: "Typically one configured core/spatial stream in current recorder config"
+    sampling_rate: "Controlled by probe traffic; default ping_interval_s=0.025 (~40 Hz target)"
+    available_labels: [warmup, empty_calibration, empty, transition_enter, movement, transition_exit, enter, exit, across_left_to_right, across_right_to_left, toward_pi, away_from_pi]
+    intended_aeris_use: "Fine-tuning, site calibration, validation, and later Raspberry Pi deployment evaluation"
+    loader_implementation_status: implemented
+    notes: "Participant names remain local DB/UI metadata and are not part of canonical prediction targets."
+
+  - dataset_id: presence_movement
+    official_name: "A Wi-Fi Channel State Information (CSI) and Received Signal Strength (RSS) data-set for human presence and movement detection"
+    official_url: https://zenodo.org/records/3677366
+    download_url: https://zenodo.org/records/3677366
+    citation: "Scheurer, Sebastian. A Wi-Fi Channel State Information (CSI) and Received Signal Strength (RSS) data-set for human presence and movement detection. Zenodo. https://doi.org/10.5281/zenodo.3677366"
+    license: CC-BY-4.0
+    source_format: "gzip-compressed line-delimited CSI JSON (*.csi.json.gz) plus annotations.csv"
+    csi_hardware_chipset: "Intel CSI Tool"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "30 subcarrier groups"
+    antenna_configuration: "One complex number per transmitter-receiver pair per subcarrier; exact AP/client antenna layout requires source README/diagram review"
+    sampling_rate: "Inferred from timestamps"
+    available_labels: [Gone, Approach, Enter, Mobile, Stationary, Exit, Departure]
+    intended_aeris_use: "Public pretraining for empty/static/motion/entry/exit label hierarchy"
+    loader_implementation_status: implemented
+    notes: "Official README states CSI JSON files are one object per line, not one enclosing JSON array."
+
+  - dataset_id: csi_traces
+    official_name: "WISDOM CSI traces for various human activities"
+    official_url: https://github.com/senselab-iitm/wisdom
+    download_url: https://drive.google.com/drive/folders/13Crp-owAzkjZVH85AhisW9Yfi78wsoMf
+    citation: "Lenka, Manoj and Chakraborty, Ayon. On-Device Deep Learning for IoT-based Wireless Sensing Applications. IEEE PerCom Workshops/WiSense 2024."
+    license: verification_required
+    source_format: "ESP32 text traces under data/human_activity_recognition; exact columns are documented in esp_col_desp.md inside the dataset download"
+    csi_hardware_chipset: "ESP32 receiver streaming CSI to Raspberry Pi 3B"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: verification_required
+    antenna_configuration: verification_required
+    sampling_rate: "Inferred from trace timestamps after column spec verification"
+    available_labels: [empty, standing, sitting, sittingupdown, jumping, walking]
+    intended_aeris_use: "Small-device public pretraining and cross-chip robustness experiments"
+    loader_implementation_status: stub
+    notes: "Adapter intentionally raises NotImplementedError until esp_col_desp.md or a small official sample is present locally."
+
+  - dataset_id: csi_bench
+    official_name: "CSI-Bench: A Large-Scale In-the-Wild Dataset for Multi-task WiFi Sensing"
+    official_url: https://ai-iot-sensing.github.io/projects/project.html
+    download_url: https://www.kaggle.com/datasets/guozhenjennzhu/csi-bench
+    citation: "Zhu, Guozhen et al. CSI-Bench: A Large-Scale In-the-Wild Dataset for Multi-task WiFi Sensing. NeurIPS 2025 / arXiv:2505.21866."
+    license: verification_required
+    source_format: "Task directories with metadata, splits, H5/MAT CSI recordings in Kaggle release"
+    csi_hardware_chipset: "Commercial WiFi routers and edge devices; 16 device types reported by project"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "feature_size=232 in official local config; raw representation requires per-task file verification"
+    antenna_configuration: verification_required
+    sampling_rate: verification_required
+    available_labels: [fall_detection, breathing_monitoring, localization, motion_source, human_activity, human_identity, proximity]
+    intended_aeris_use: "Large heterogeneous pretraining and robustness benchmarking; identity/breathing/localization remain auxiliary or self-supervised"
+    loader_implementation_status: stub
+    notes: "Large dataset is not downloaded automatically. H5/MAT loading needs optional h5py/scipy and local sample verification."
+
+  - dataset_id: sensefi_ut_har
+    official_name: SenseFi processed UT-HAR
+    official_url: https://github.com/xyanchen/WiFi-CSI-Sensing-Benchmark
+    download_url: https://drive.google.com/drive/folders/1R0R8SlVbLI1iUFQCzh_mH90H_4CW2iwt
+    citation: "Yang, Jianfei et al. SenseFi: A Library and Benchmark on Deep-Learning-Empowered WiFi Human Sensing. Patterns 4(3), 2023."
+    license: verification_required
+    source_format: "Processed NumPy arrays stored under UT_HAR/data and UT_HAR/label"
+    csi_hardware_chipset: "Intel 5300 NIC"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "CSI size 1 x 250 x 90 in SenseFi README"
+    antenna_configuration: "1 processed link/channel"
+    sampling_rate: verification_required
+    available_labels: [lie_down, fall, walk, pickup, run, sit_down, stand_up]
+    intended_aeris_use: "HAR auxiliary pretraining; fall/run/walk map to motion while static postures remain static"
+    loader_implementation_status: partial
+    notes: "UT-HAR processed arrays can be loaded with NumPy; full label semantics still need local file review."
+
+  - dataset_id: sensefi_ntu_fi_har
+    official_name: SenseFi processed NTU-Fi HAR
+    official_url: https://github.com/xyanchen/WiFi-CSI-Sensing-Benchmark
+    download_url: https://drive.google.com/drive/folders/1R0R8SlVbLI1iUFQCzh_mH90H_4CW2iwt
+    citation: "Yang, Jianfei et al. SenseFi: A Library and Benchmark on Deep-Learning-Empowered WiFi Human Sensing. Patterns 4(3), 2023."
+    license: verification_required
+    source_format: "Processed MATLAB .mat files by class under train_amp/test_amp"
+    csi_hardware_chipset: "Atheros CSI Tool"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "114 subcarriers per link in SenseFi README"
+    antenna_configuration: "3 processed links/channels"
+    sampling_rate: verification_required
+    available_labels: [box, circle, clean, fall, run, walk]
+    intended_aeris_use: "Motion/HAR auxiliary pretraining"
+    loader_implementation_status: stub
+    notes: "Requires scipy.io.loadmat and local .mat sample verification."
+
+  - dataset_id: sensefi_ntu_fi_humanid
+    official_name: SenseFi processed NTU-Fi HumanID
+    official_url: https://github.com/xyanchen/WiFi-CSI-Sensing-Benchmark
+    download_url: https://drive.google.com/drive/folders/1R0R8SlVbLI1iUFQCzh_mH90H_4CW2iwt
+    citation: "Yang, Jianfei et al. SenseFi: A Library and Benchmark on Deep-Learning-Empowered WiFi Human Sensing. Patterns 4(3), 2023."
+    license: verification_required
+    source_format: "Processed MATLAB .mat files by identity class"
+    csi_hardware_chipset: "Atheros CSI Tool"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "114 subcarriers per link in SenseFi README"
+    antenna_configuration: "3 processed links/channels"
+    sampling_rate: verification_required
+    available_labels: [gaits_of_14_subjects]
+    intended_aeris_use: "Self-supervised or auxiliary identity-invariance experiments only; not an intrusion target"
+    loader_implementation_status: stub
+    notes: "Human identity labels intentionally map to UNKNOWN in the intrusion label hierarchy."
+
+  - dataset_id: sensefi_widar
+    official_name: SenseFi processed Widar
+    official_url: https://github.com/xyanchen/WiFi-CSI-Sensing-Benchmark
+    download_url: https://drive.google.com/drive/folders/1R0R8SlVbLI1iUFQCzh_mH90H_4CW2iwt
+    citation: "Yang, Jianfei et al. SenseFi: A Library and Benchmark on Deep-Learning-Empowered WiFi Human Sensing. Patterns 4(3), 2023; Widar3.0 project."
+    license: verification_required
+    source_format: "Processed BVP CSV files by gesture class"
+    csi_hardware_chipset: "Intel 5300 NIC for Widar source; processed BVP representation in SenseFi"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: "Processed BVP size 22 x 20 x 20, not raw subcarriers"
+    antenna_configuration: "Processed BVP"
+    sampling_rate: verification_required
+    available_labels: [22_gesture_classes]
+    intended_aeris_use: "Gesture/motion auxiliary pretraining, not direct intrusion labels"
+    loader_implementation_status: partial
+    notes: "CSV BVP samples can be loaded, but they are not raw CSI."
+
+  - dataset_id: operanet
+    official_name: "OPERAnet: a multimodal activity recognition dataset acquired from radio frequency and vision-based sensors"
+    official_url: https://www.nature.com/articles/s41597-022-01573-2
+    download_url: https://springernature.figshare.com/collections/A_Comprehensive_Multimodal_Activity_Recognition_Dataset_Acquired_from_Radio_Frequency_and_Vision-Based_Sensors/5551209
+    citation: "Bocus, Mohammud J. et al. OPERAnet, a multimodal activity recognition dataset acquired from radio frequency and vision-based sensors. Scientific Data 9, 474 (2022)."
+    license: verification_required
+    source_format: "Figshare multimodal archive; WiFi CSI modality needs local file structure verification"
+    csi_hardware_chipset: "Intel 5300 WiFi NIC"
+    frequency_band: "5 GHz"
+    channel_bandwidth: verification_required
+    number_of_subcarriers: verification_required
+    antenna_configuration: "3 x 3 MIMO transmitter/receiver configuration"
+    sampling_rate: verification_required
+    available_labels: [sitting_down_on_chair, standing_from_sit, lying_down_on_ground, standing_from_floor, walking, body_rotating]
+    intended_aeris_use: "Daily-activity public pretraining with synchronized RF/vision metadata"
+    loader_implementation_status: stub
+    notes: "Adapter waits for local archive/sample inspection to avoid guessing Figshare file layout."
+
+  - dataset_id: aril
+    official_name: "Joint Activity Recognition and Indoor Localization with WiFi Fingerprints"
+    official_url: https://github.com/geekfeiw/ARIL
+    download_url: https://drive.google.com/open?id=1SCxUHbl6rNWM3kT0c-D4s_kyAero9_-o
+    citation: "Wang, Fei et al. Joint Activity Recognition and Indoor Localization With WiFi Fingerprints. IEEE Access 7, 80058-80068, 2019."
+    license: verification_required
+    source_format: "Google Drive data linked from official GitHub; segmented/upsampled plus optional original data"
+    csi_hardware_chipset: "Ettus N210 and Ettus Clock per official README"
+    frequency_band: verification_required
+    channel_bandwidth: verification_required
+    number_of_subcarriers: verification_required
+    antenna_configuration: verification_required
+    sampling_rate: verification_required
+    available_labels: [hand_up, hand_down, hand_left, hand_right, hand_circle, hand_cross, locations_0_to_15]
+    intended_aeris_use: "Auxiliary gesture/localization learning only; localization labels are not intrusion targets"
+    loader_implementation_status: stub
+    notes: "Adapter waits for local data sample and format verification."
+
+  - dataset_id: broadcom_nexmon_examples
+    official_name: Nexmon CSI example captures and payload format
+    official_url: https://github.com/seemoo-lab/nexmon_csi
+    download_url: https://github.com/seemoo-lab/nexmon_csi
+    citation: "Gringoli, Francesco et al. Free Your CSI: A Channel State Information Extraction Platform For Modern Wi-Fi Chipsets. WiNTECH 2019."
+    license: verification_required
+    source_format: "UDP packets on destination port 5500 inside PCAP"
+    csi_hardware_chipset: "Broadcom/Cypress: bcm4339, bcm43455c0, bcm4358, bcm4366c0"
+    frequency_band: "2.4 GHz and 5 GHz"
+    channel_bandwidth: "20/40/80 MHz"
+    number_of_subcarriers: "64/128/256 raw carriers including guard/null carriers"
+    antenna_configuration: "Up to four cores and four spatial streams depending on chip/config"
+    sampling_rate: "Per received Wi-Fi frame"
+    available_labels: []
+    intended_aeris_use: "Decoder compatibility tests and Broadcom/Nexmon metadata reference"
+    loader_implementation_status: reference_only
+    notes: "AERIS loader implements bcm43455c0 int16 real/imag payload extraction."

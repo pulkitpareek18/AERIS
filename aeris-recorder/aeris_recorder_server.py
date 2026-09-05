@@ -799,6 +799,8 @@ class RecorderController:
         location_id: int,
         walking_type: str,
         clothing: str,
+        human_count_inside: int = 0,
+        human_count_outside: int = 0,
     ) -> dict[str, Any]:
         with self.lock:
             if self.state["state"] in self.ACTIVE:
@@ -824,9 +826,10 @@ class RecorderController:
                 raise ValidationError(f"Invalid clothing '{clothing}'.")
 
             now = datetime.now().astimezone()
+            now_str = now.strftime("%Y%m%d-%H%M%S")
             session_id = "-".join(
                 [
-                    now.strftime("%Y%m%d-%H%M%S"),
+                    now_str,
                     location["location_code"],
                     participant["participant_code"],
                     safe_id(walking_type, "walk"),
@@ -842,6 +845,8 @@ class RecorderController:
                 walking_type=walking_type,
                 clothing=clothing,
                 session_directory=session_dir,
+                human_count_inside=human_count_inside,
+                human_count_outside=human_count_outside,
             )
 
             self.state = self._idle()
@@ -1444,8 +1449,10 @@ class RecorderHandler(BaseHTTPRequestHandler):
                 try:
                     p_id = int(data["participant_id"])
                     l_id = int(data["location_id"])
+                    hc_in = int(data.get("human_count_inside", 0))
+                    hc_out = int(data.get("human_count_outside", 0))
                 except (ValueError, TypeError):
-                    self.send_json({"error": "participant_id and location_id must be integers."}, 400)
+                    self.send_json({"error": "participant_id, location_id, human_count_inside, human_count_outside must be integers."}, 400)
                     return
 
                 res = self.server.controller.start(
@@ -1453,6 +1460,8 @@ class RecorderHandler(BaseHTTPRequestHandler):
                     location_id=l_id,
                     walking_type=str(data["walking_type"]).strip(),
                     clothing=str(data["clothing"]).strip(),
+                    human_count_inside=hc_in,
+                    human_count_outside=hc_out,
                 )
                 self.send_json(res, 202)
                 return

@@ -115,6 +115,8 @@ class AerisDatabase:
                             location_id INTEGER NOT NULL REFERENCES locations(id),
                             walking_type TEXT CHECK (walking_type IN ('enter', 'exit', 'across_left_to_right', 'across_right_to_left', 'toward_pi', 'away_from_pi')) NOT NULL,
                             clothing TEXT CHECK (clothing IN ('light', 'normal', 'heavy', 'woollen_winter')) NOT NULL,
+                            human_count_inside INTEGER NOT NULL DEFAULT 0,
+                            human_count_outside INTEGER NOT NULL DEFAULT 0,
                             quality_status TEXT,
                             packet_count INTEGER,
                             packet_rate_hz REAL,
@@ -140,6 +142,17 @@ class AerisDatabase:
                     )
                     conn.commit()
                     version = 1
+
+                if version < 2:
+                    cursor.executescript(
+                        """
+                        ALTER TABLE trials ADD COLUMN human_count_inside INTEGER NOT NULL DEFAULT 0;
+                        ALTER TABLE trials ADD COLUMN human_count_outside INTEGER NOT NULL DEFAULT 0;
+                        PRAGMA user_version = 2;
+                        """
+                    )
+                    conn.commit()
+                    version = 2
 
                 # Re-sync sequences with existing tables in case data was inserted externally
                 cursor.execute(
@@ -500,6 +513,8 @@ class AerisDatabase:
         walking_type: str,
         clothing: str,
         session_directory: str,
+        human_count_inside: int = 0,
+        human_count_outside: int = 0,
         started_at: str | None = None,
     ) -> dict[str, Any]:
         participant = self.get_participant(participant_id)
@@ -532,8 +547,9 @@ class AerisDatabase:
                     """
                     INSERT INTO trials (
                         session_id, participant_id, location_id, walking_type, clothing,
+                        human_count_inside, human_count_outside,
                         quality_status, session_directory, started_at
-                    ) VALUES (?, ?, ?, ?, ?, 'RECORDING', ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'RECORDING', ?, ?)
                     """,
                     (
                         session_id,
@@ -541,6 +557,8 @@ class AerisDatabase:
                         location_id,
                         walking_type,
                         clothing,
+                        human_count_inside,
+                        human_count_outside,
                         str(session_directory),
                         started_at,
                     ),

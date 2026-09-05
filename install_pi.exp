@@ -1,0 +1,8 @@
+#!/usr/bin/expect -f
+set timeout -1
+spawn ssh aeris@10.203.223.102 "cd /home/aeris && rm -rf aeris-recorder-backup-old && mv aeris-recorder aeris-recorder-backup-old && mv aeris-recorder-new aeris-recorder && cd aeris-recorder && sudo bash install.sh && sudo systemctl restart aeris-recorder"
+expect "password:"
+send "aeris\r"
+expect "password for aeris:"
+send "aeris\r"
+expect eof
