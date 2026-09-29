@@ -186,6 +186,81 @@ class AerisDatabase:
                 )
                 conn.commit()
 
+                if version < 3:
+                    # V2 digital-twin schema: room geometry, anchor grid, device
+                    # placement (pi + csi hotspot), door, and volunteers for the
+                    # Pi-hotspot auto-labeling path. See implementation_plan.md V2.
+                    cursor.executescript(
+                        """
+                        CREATE TABLE IF NOT EXISTS rooms (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL,
+                            width_m REAL NOT NULL,
+                            depth_m REAL NOT NULL,
+                            height_m REAL NOT NULL DEFAULT 2.6,
+                            active INTEGER NOT NULL DEFAULT 1,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+
+                        CREATE TABLE IF NOT EXISTS anchors (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            room_id INTEGER NOT NULL REFERENCES rooms(id),
+                            label TEXT NOT NULL, -- e.g. corner_nw, edge_n_center, center
+                            x_m REAL NOT NULL,
+                            y_m REAL NOT NULL,
+                            UNIQUE(room_id, label)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS devices (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            room_id INTEGER NOT NULL REFERENCES rooms(id),
+                            kind TEXT CHECK (kind IN ('pi', 'csi_hotspot')) NOT NULL,
+                            anchor_id INTEGER REFERENCES anchors(id),
+                            x_m REAL, -- free placement overrides anchor
+                            y_m REAL,
+                            UNIQUE(room_id, kind)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS doors (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            room_id INTEGER NOT NULL REFERENCES rooms(id),
+                            edge TEXT CHECK (edge IN ('N', 'E', 'S', 'W')) NOT NULL,
+                            position_m REAL NOT NULL DEFAULT 0.5
+                        );
+
+                        CREATE TABLE IF NOT EXISTS volunteers (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            mac TEXT UNIQUE NOT NULL,
+                            display_tag TEXT,
+                            current_region TEXT CHECK (current_region IN ('inside', 'outside')) DEFAULT 'outside',
+                            active INTEGER NOT NULL DEFAULT 1,
+                            joined_at TEXT,
+                            last_seen_at TEXT
+                        );
+
+                        CREATE TABLE IF NOT EXISTS label_events (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            trial_session_id TEXT,
+                            volunteer_id INTEGER NOT NULL REFERENCES volunteers(id),
+                            region TEXT CHECK (region IN ('inside', 'outside')) NOT NULL,
+                            rssi_dbm REAL,
+                            source TEXT CHECK (source IN ('ap_assoc', 'csi_rssi', 'manual')) NOT NULL,
+                            t_epoch REAL NOT NULL
+                        );
+
+                        CREATE INDEX IF NOT EXISTS idx_anchors_room ON anchors(room_id);
+                        CREATE INDEX IF NOT EXISTS idx_devices_room ON devices(room_id);
+                        CREATE INDEX IF NOT EXISTS idx_doors_room ON doors(room_id);
+                        CREATE INDEX IF NOT EXISTS idx_label_events_trial ON label_events(trial_session_id);
+                        CREATE INDEX IF NOT EXISTS idx_label_events_time ON label_events(t_epoch);
+
+                        PRAGMA user_version = 3;
+                        """
+                    )
+                    conn.commit()
+                    version = 3
+
             return version
 
     def _next_code(self, conn: sqlite3.Connection, prefix: str) -> str:

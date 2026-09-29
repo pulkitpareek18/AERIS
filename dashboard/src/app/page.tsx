@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, ScanLine, Radar, Radio } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, AreaChart, Area } from 'recharts';
 
 export default function Dashboard() {
@@ -96,7 +95,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
         <div>
           <h1 className="text-3xl font-bold tracking-widest text-white flex items-center gap-4 uppercase">
-            <ScanLine className="text-cyan-500 w-8 h-8" />
+            <span className="text-cyan-500 text-2xl leading-none">[+]</span>
             AERIS // Spatial Intelligence
           </h1>
           <p className="text-zinc-500 mt-1 text-sm tracking-widest">THROUGH-WALL RF TELEMETRY SYSTEM v3.0</p>
@@ -144,7 +143,7 @@ export default function Dashboard() {
                 {/* Center sensor anchor; no deployment-specific placement is assumed. */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
                   <div className="w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center">
-                    <Radio className="w-2.5 h-2.5 text-black" />
+                    <span className="text-[8px] font-black text-black">RF</span>
                   </div>
                   <span className="absolute left-1/2 -translate-x-1/2 top-6 text-[8px] text-cyan-300 tracking-widest">SENSOR</span>
                 </div>
@@ -153,7 +152,7 @@ export default function Dashboard() {
                 {metrics.inside > 0 && <div className="absolute left-[34%] top-[50%] -translate-x-1/2 -translate-y-1/2">
                   <div className="absolute inset-[-8px] rounded-full border border-blue-400/25 animate-ping" />
                   <div className="relative w-7 h-7 rounded-full bg-blue-500/15 border border-blue-400 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-blue-300" />
+                    <span className="text-xs font-bold text-blue-300">1+</span>
                   </div>
                   <span className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap text-[8px] text-blue-300 tracking-widest">OCCUPANT</span>
                 </div>}
@@ -197,16 +196,16 @@ export default function Dashboard() {
             <div className="bg-[#09090b] border border-zinc-800 rounded-lg p-6 relative">
               <h2 className="text-zinc-500 text-xs tracking-widest mb-4">INSIDE OCCUPANCY</h2>
               <div className="text-8xl font-black text-blue-500">{metrics.inside}</div>
-              <Users className="absolute bottom-6 right-6 w-16 h-16 text-blue-500/20" />
+              <span className="absolute bottom-6 right-6 text-5xl font-black text-blue-500/20">1+</span>
             </div>
             
             <div className="bg-[#09090b] border border-zinc-800 rounded-lg p-6 relative">
               <h2 className="text-zinc-500 text-xs tracking-widest mb-4 flex items-center justify-between">
                 THROUGH-WALL OCCUPANCY
-                {metrics.outside > 0 && <span className="text-red-500 animate-pulse flex items-center gap-1"><AlertCircle className="w-4 h-4"/> DETECTED</span>}
+                {metrics.outside > 0 && <span className="text-red-500 animate-pulse flex items-center gap-1"><span className="text-sm font-bold">!</span> DETECTED</span>}
               </h2>
               <div className="text-8xl font-black text-orange-500">{metrics.outside}</div>
-              <Radar className="absolute bottom-6 right-6 w-16 h-16 text-orange-500/20" />
+              <span className="absolute bottom-6 right-6 text-5xl font-black text-orange-500/20">RF</span>
             </div>
           </div>
 

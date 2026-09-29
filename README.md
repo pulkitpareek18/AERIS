@@ -145,6 +145,9 @@ The next improvements are deliberately incremental:
 5. Add temporal evaluation, room-held-out splits, and confidence calibration.
 6. Move inference onto the Pi after the live model is accurate enough.
 
+> The authoritative next-phase plan is the **V2 Digital-Twin Recorder &
+> Auto-Labeled Data** section in [implementation_plan.md](implementation_plan.md).
+
 The calibration helper is available for an empty-room capture:
 
 ```bash

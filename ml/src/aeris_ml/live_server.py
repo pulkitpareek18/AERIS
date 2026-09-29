@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import shlex
 import time
@@ -19,7 +20,7 @@ from aeris_ml.pi_adapter import adapt_pi_csi_window, MODEL_LINKS, MODEL_DELAY_BI
 app = FastAPI()
 
 # --- Configuration (env-overridable so you can point at the real Pi) ---
-PI_HOST = os.environ.get("AERIS_PI_HOST", "10.230.42.102")
+PI_HOST = os.environ.get("AERIS_PI_HOST", "10.60.152.102")
 PI_USER = os.environ.get("AERIS_PI_USER", "aeris")
 PI_PASSWORD = os.environ.get("AERIS_PI_PASSWORD", "aeris")
 PI_RECORDER_URL = os.environ.get("AERIS_PI_RECORDER_URL", "http://127.0.0.1:8765")
@@ -37,14 +38,48 @@ WINDOW_SECONDS = 2.0
 WINDOW_PACKETS = 80  # 40 Hz * 2 s; adapter averages over the window anyway
 EMIT_INTERVAL_SECONDS = 0.5  # dashboard updates; CSI itself remains stream-driven
 
+# The Pi recorder (aeris-recorder) configures Nexmon + probe traffic + tcpdump
+# inside TrialRunner and writes the live capture to the active session's
+# capture.pcap. Tail that file byte-wise. Wait until /api/status reports the
+# session_dir so we never stream from a stale recording.
 STREAM_COMMAND = (
-    f"sudo -n ping -D -O -I {shlex.quote(PI_TRAFFIC_INTERFACE)} "
-    f"-i 0.025 -s 1000 {shlex.quote(PI_PROBE_TARGET)} "
-    ">/dev/null 2>&1 & ping_pid=$!; "
-    "trap 'kill $ping_pid 2>/dev/null' EXIT; "
-    f"exec sudo -n tcpdump -U -i {shlex.quote(PI_CAPTURE_INTERFACE)} "
-    "-n -s 0 'dst port 5500' -w -"
+    "while true; do "
+    f"session=$(curl -fsS {shlex.quote(PI_RECORDER_URL)}/api/status 2>/dev/null | "
+    "sed -n 's/.*\"session_dir\": \"\\([^\"]*\\)\".*/\\1/p'); "
+    "f=\"$session/capture.pcap\"; "
+    "if [ -n \"$session\" ] && [ -f \"$f\" ]; then tail -c +1 -f \"$f\"; break; fi; "
+    "sleep 1; "
+    "done"
 )
+
+# Auto-start a live capture via the recorder's own API when it is idle. This is
+# the only supported way to bring up Nexmon CSI (monitor mode + probe traffic).
+def ensure_recorder_running(ssh) -> dict:
+    """If the recorder is idle, start a live capture using the first active
+    participant + location already present in its SQLite DB. Returns status."""
+    script = (
+        f"curl -fsS -X POST {shlex.quote(PI_RECORDER_URL)}/api/start "
+        "-H 'Content-Type: application/json' "
+        "-d '{"
+        "\"participant_id\":1,\"location_id\":1,"
+        "\"walking_type\":\"enter\",\"clothing\":\"normal\","
+        "\"human_count_inside\":0,\"human_count_outside\":0"
+        "}' 2>&1"
+    )
+    _, status_out, _ = ssh.exec_command(
+        f"curl -fsS {shlex.quote(PI_RECORDER_URL)}/api/status 2>/dev/null"
+    )
+    status_raw = status_out.read().decode("utf-8", "ignore")
+    try:
+        state = json.loads(status_raw).get("state", "unknown")
+    except json.JSONDecodeError:
+        state = "unknown"
+    if state in ("idle", "complete", "error"):
+        print("Recorder idle -> auto-starting live CSI capture (P001/L001).")
+        _, start_out, _ = ssh.exec_command(script)
+        print("api/start response:", start_out.read().decode("utf-8", "ignore").strip()[:200])
+    return {"state": state}
+
 
 # --- Load trained model ---
 device = torch.device("cpu")
@@ -106,6 +141,12 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Failed to connect to Pi: {e}")
         await websocket.send_json({"status": "PI_CONNECTION_FAILED", "error": str(e)})
         return
+
+    # Bring Nexmon CSI up via the recorder API if it isn't already capturing.
+    try:
+        ensure_recorder_running(ssh)
+    except Exception as e:
+        print(f"Recorder auto-start failed (will still try to stream if active): {e}")
 
     # Stream the growing PCAP once. No SFTP snapshots or repeated file decoding.
     _stdin, stream_stdout, _stderr = ssh.exec_command(STREAM_COMMAND, get_pty=False)
